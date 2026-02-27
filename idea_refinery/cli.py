@@ -115,6 +115,10 @@ def _parse_role_provider_pairs(items: tuple[str, ...]) -> dict[str, str]:
 )
 @click.option("--ollama-model", default=None)
 @click.option("--ollama", "use_ollama", is_flag=True, default=False)
+@click.option("--gemini-model", default=None)
+@click.option("--gemini", "use_gemini", is_flag=True, default=False)
+@click.option("--claude-model", default=None)
+@click.option("--claude", "use_claude", is_flag=True, default=False)
 def run(
     idea: str,
     output_dir: str,
@@ -128,12 +132,20 @@ def run(
     role_providers: tuple[str, ...],
     ollama_model: str | None,
     use_ollama: bool,
+    gemini_model: str | None,
+    use_gemini: bool,
+    claude_model: str | None,
+    use_claude: bool,
 ) -> None:
     openai_api_key = os.getenv("OPENAI_API_KEY", "")
     base_url = openai_base_url or os.getenv("OPENAI_BASE_URL") or "https://api.openai.com/v1"
     model = openai_model or os.getenv("DEFAULT_MODEL") or "gpt-4o-mini"
     ollama_model_value = ollama_model or os.getenv("OLLAMA_MODEL") or "qwen3:30b"
+    gemini_model_value = gemini_model or os.getenv("GEMINI_MODEL") or "gemini-2.0-flash"
+    claude_model_value = claude_model or os.getenv("CLAUDE_MODEL") or "claude-3-5-sonnet-latest"
     db_path = os.getenv("DB_PATH", "./refinery.db")
+    gemini_api_key = os.getenv("GEMINI_API_KEY", "")
+    claude_api_key = os.getenv("CLAUDE_API_KEY", "")
     openai_specs = _parse_openai_provider_json(os.getenv("OPENAI_COMPAT_PROVIDERS_JSON"))
     openai_specs.extend([_parse_openai_provider_entry(item) for item in openai_providers])
     role_map = _parse_role_map_json(os.getenv("ROLE_PROVIDER_MAP_JSON"))
@@ -145,8 +157,18 @@ def run(
         openai_model=model,
         ollama_base_url=os.getenv("OLLAMA_BASE_URL", "http://localhost:11434"),
         ollama_model=ollama_model_value,
+        gemini_api_key=gemini_api_key,
+        gemini_base_url=os.getenv(
+            "GEMINI_BASE_URL", "https://generativelanguage.googleapis.com"
+        ),
+        gemini_model=gemini_model_value,
+        claude_api_key=claude_api_key,
+        claude_base_url=os.getenv("CLAUDE_BASE_URL", "https://api.anthropic.com"),
+        claude_model=claude_model_value,
         openai_compat_specs=openai_specs,
         include_ollama=use_ollama,
+        include_gemini=use_gemini,
+        include_claude=use_claude,
     )
     if role_map:
         registry.set_role_map(role_map)
