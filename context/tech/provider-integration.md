@@ -41,6 +41,11 @@
 3. 在 registry 中注册 provider 并加入候选路由
 4. 增加对应联调测试
 
+内置原生插件：
+- Gemini（`--gemini`，`GEMINI_API_KEY`）
+- Claude（`--claude`，`CLAUDE_API_KEY`）
+- Ollama（`--ollama`）
+
 ## 目标供应商映射
 
 - Gemini：优先接兼容网关；无兼容网关走插件
