@@ -30,5 +30,6 @@ class Artifact(BaseModel):
     raw_text: str = ""  # Markdown / raw text representation
     summary: str = ""  # Auto-generated summary (populated after edit)
     diff_summary: str = ""  # What changed from previous version
+    previous_artifact_id: str | None = None
     schema_coverage: float = 0.0  # 0-1, fraction of required sections present
     created_at: datetime = Field(default_factory=_now)
