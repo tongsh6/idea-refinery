@@ -5,6 +5,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from .base import BaseProvider
+from .claude import ClaudeProvider
+from .gemini import GeminiProvider
 from .ollama import OllamaProvider
 from .openai_compat import OpenAICompatibleProvider
 
@@ -64,8 +66,16 @@ def build_registry(
     openai_model: str = "gpt-4o-mini",
     ollama_base_url: str = "http://localhost:11434",
     ollama_model: str = "qwen3:30b",
+    gemini_api_key: str = "",
+    gemini_base_url: str = "https://generativelanguage.googleapis.com",
+    gemini_model: str = "gemini-2.0-flash",
+    claude_api_key: str = "",
+    claude_base_url: str = "https://api.anthropic.com",
+    claude_model: str = "claude-3-5-sonnet-latest",
     openai_compat_specs: list[OpenAIProviderSpec] | None = None,
     include_ollama: bool = False,
+    include_gemini: bool = False,
+    include_claude: bool = False,
 ) -> ProviderRegistry:
     """Build a default ProviderRegistry from simple parameters."""
     providers: list[BaseProvider] = []
@@ -98,9 +108,33 @@ def build_registry(
             OllamaProvider(name="ollama", base_url=ollama_base_url, default_model=ollama_model)
         )
 
+    if include_gemini:
+        if not gemini_api_key:
+            raise RuntimeError("Missing GEMINI_API_KEY for Gemini provider")
+        providers.append(
+            GeminiProvider(
+                name="gemini",
+                base_url=gemini_base_url,
+                api_key=gemini_api_key,
+                default_model=gemini_model,
+            )
+        )
+
+    if include_claude:
+        if not claude_api_key:
+            raise RuntimeError("Missing CLAUDE_API_KEY for Claude provider")
+        providers.append(
+            ClaudeProvider(
+                name="claude",
+                base_url=claude_base_url,
+                api_key=claude_api_key,
+                default_model=claude_model,
+            )
+        )
+
     if not providers:
         raise RuntimeError(
-            "No providers configured. Set OPENAI_API_KEY or enable Ollama."
+            "No providers configured. Set OPENAI_API_KEY, GEMINI_API_KEY, CLAUDE_API_KEY, or enable Ollama."
         )
 
     return ProviderRegistry(providers)
