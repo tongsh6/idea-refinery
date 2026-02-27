@@ -130,8 +130,9 @@ def run(
     use_ollama: bool,
 ) -> None:
     openai_api_key = os.getenv("OPENAI_API_KEY", "")
-    base_url = openai_base_url or os.getenv("OPENAI_BASE_URL", "https://api.openai.com/v1")
-    model = openai_model or os.getenv("DEFAULT_MODEL", "gpt-4o-mini")
+    base_url = openai_base_url or os.getenv("OPENAI_BASE_URL") or "https://api.openai.com/v1"
+    model = openai_model or os.getenv("DEFAULT_MODEL") or "gpt-4o-mini"
+    ollama_model_value = ollama_model or os.getenv("OLLAMA_MODEL") or "qwen3:30b"
     db_path = os.getenv("DB_PATH", "./refinery.db")
     openai_specs = _parse_openai_provider_json(os.getenv("OPENAI_COMPAT_PROVIDERS_JSON"))
     openai_specs.extend([_parse_openai_provider_entry(item) for item in openai_providers])
@@ -143,7 +144,7 @@ def run(
         openai_base_url=base_url,
         openai_model=model,
         ollama_base_url=os.getenv("OLLAMA_BASE_URL", "http://localhost:11434"),
-        ollama_model=ollama_model or os.getenv("OLLAMA_MODEL", "qwen3:30b"),
+        ollama_model=ollama_model_value,
         openai_compat_specs=openai_specs,
         include_ollama=use_ollama,
     )
