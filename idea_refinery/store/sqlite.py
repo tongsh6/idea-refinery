@@ -2,9 +2,10 @@ from __future__ import annotations
 
 import json
 import sqlite3
+from datetime import datetime
 from pathlib import Path
 
-from ..models import Artifact, CR, Decision, Review, Round, Run
+from ..models import Artifact, CR, Decision, Review, ReviewScores, Round, Run
 
 
 class SqliteStore:
@@ -64,6 +65,7 @@ class SqliteStore:
                 raw_text TEXT,
                 summary TEXT,
                 diff_summary TEXT,
+                previous_artifact_id TEXT,
                 schema_coverage REAL,
                 created_at TEXT
             )
@@ -119,7 +121,135 @@ class SqliteStore:
             )
             """
         )
+        self._ensure_column(table="artifacts", column="previous_artifact_id", column_type="TEXT")
         self._conn.commit()
+
+    def _ensure_column(self, *, table: str, column: str, column_type: str) -> None:
+        cur = self._conn.cursor()
+        rows = cur.execute(f"PRAGMA table_info({table})").fetchall()
+        columns = {str(row["name"]) for row in rows}
+        if column not in columns:
+            _ = cur.execute(f"ALTER TABLE {table} ADD COLUMN {column} {column_type}")
+
+    @staticmethod
+    def _parse_datetime(value: str) -> datetime:
+        return datetime.fromisoformat(value)
+
+    @staticmethod
+    def _load_dict(raw: str | None) -> dict[str, object]:
+        if not raw:
+            return {}
+        data = json.loads(raw)
+        if isinstance(data, dict):
+            return {str(k): v for k, v in data.items()}
+        return {}
+
+    @staticmethod
+    def _load_list(raw: str | None) -> list[object]:
+        if not raw:
+            return []
+        data = json.loads(raw)
+        if isinstance(data, list):
+            return data
+        return []
+
+    def _row_to_run(self, row: sqlite3.Row) -> Run:
+        return Run(
+            id=row["id"],
+            idea=row["idea"] or "",
+            config_json=row["config_json"] or "",
+            status=row["status"],
+            cost_usd=float(row["cost_usd"] or 0.0),
+            total_rounds=int(row["total_rounds"] or 0),
+            stop_reason=row["stop_reason"],
+            error=row["error"],
+            created_at=self._parse_datetime(row["created_at"]),
+            updated_at=self._parse_datetime(row["updated_at"]),
+        )
+
+    def _row_to_round(self, row: sqlite3.Row) -> Round:
+        return Round(
+            id=row["id"],
+            run_id=row["run_id"],
+            step=row["step"] or "",
+            role=row["role"] or "",
+            provider_name=row["provider_name"] or "",
+            model=row["model"] or "",
+            prompt_hash=row["prompt_hash"] or "",
+            input_tokens=int(row["input_tokens"] or 0),
+            output_tokens=int(row["output_tokens"] or 0),
+            cost_usd=float(row["cost_usd"] or 0.0),
+            latency_ms=int(row["latency_ms"] or 0),
+            raw_output=row["raw_output"] or "",
+            metadata=self._load_dict(row["metadata_json"]),
+            created_at=self._parse_datetime(row["created_at"]),
+        )
+
+    def _row_to_artifact(self, row: sqlite3.Row) -> Artifact:
+        return Artifact(
+            id=row["id"],
+            run_id=row["run_id"],
+            artifact_type=row["artifact_type"],
+            version=int(row["version"] or 1),
+            content=self._load_dict(row["content_json"]),
+            raw_text=row["raw_text"] or "",
+            summary=row["summary"] or "",
+            diff_summary=row["diff_summary"] or "",
+            previous_artifact_id=row["previous_artifact_id"],
+            schema_coverage=float(row["schema_coverage"] or 0.0),
+            created_at=self._parse_datetime(row["created_at"]),
+        )
+
+    def _row_to_review(self, row: sqlite3.Row) -> Review:
+        scores_data = self._load_dict(row["scores_json"])
+        cr_list: list[CR] = []
+        for item in self._load_list(row["crs_json"]):
+            if isinstance(item, dict):
+                cr_list.append(CR.model_validate(item))
+        return Review(
+            id=row["id"],
+            round_id=row["round_id"],
+            artifact_id=row["artifact_id"] or "",
+            hat=row["hat"] or "",
+            verdict=row["verdict"],
+            scores=ReviewScores.model_validate(scores_data),
+            blocking_count=int(row["blocking_count"] or 0),
+            crs=cr_list,
+            summary=row["summary"] or "",
+            created_at=self._parse_datetime(row["created_at"]),
+        )
+
+    def _row_to_cr(self, row: sqlite3.Row) -> CR:
+        resolved_at_raw = row["resolved_at"]
+        resolved_at = None if resolved_at_raw is None else self._parse_datetime(str(resolved_at_raw))
+        return CR(
+            id=row["id"],
+            artifact_id=row["artifact_id"] or "",
+            round_id=row["round_id"],
+            problem=row["problem"] or "",
+            rationale=row["rationale"] or "",
+            change=row["change"] or "",
+            acceptance=row["acceptance"] or "",
+            severity=row["severity"],
+            dimension=row["dimension"] or "",
+            status=row["status"],
+            resolution_note=row["resolution_note"] or "",
+            resolved_at=resolved_at,
+            created_at=self._parse_datetime(row["created_at"]),
+        )
+
+    def _row_to_decision(self, row: sqlite3.Row) -> Decision:
+        return Decision(
+            id=row["id"],
+            run_id=row["run_id"],
+            round_number=int(row["round_number"] or 0),
+            decision=row["decision"],
+            stop_reason=row["stop_reason"],
+            avg_score=float(row["avg_score"] or 0.0),
+            blocking_count=int(row["blocking_count"] or 0),
+            reason=row["reason"] or "",
+            created_at=self._parse_datetime(row["created_at"]),
+        )
 
     def insert_run(self, run: Run) -> None:
         self._conn.execute(
@@ -194,8 +324,9 @@ class SqliteStore:
         self._conn.execute(
             """
             INSERT INTO artifacts (id, run_id, artifact_type, version, content_json, raw_text,
-                                   summary, diff_summary, schema_coverage, created_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                                   summary, diff_summary, previous_artifact_id, schema_coverage,
+                                   created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 artifact.id,
@@ -206,11 +337,119 @@ class SqliteStore:
                 artifact.raw_text,
                 artifact.summary,
                 artifact.diff_summary,
+                artifact.previous_artifact_id,
                 artifact.schema_coverage,
                 artifact.created_at.isoformat(),
             ),
         )
         self._conn.commit()
+
+    def get_run(self, run_id: str) -> Run | None:
+        row = self._conn.execute("SELECT * FROM runs WHERE id = ?", (run_id,)).fetchone()
+        if row is None:
+            return None
+        return self._row_to_run(row)
+
+    def get_round(self, round_id: str) -> Round | None:
+        row = self._conn.execute("SELECT * FROM rounds WHERE id = ?", (round_id,)).fetchone()
+        if row is None:
+            return None
+        return self._row_to_round(row)
+
+    def get_artifact(self, artifact_id: str) -> Artifact | None:
+        row = self._conn.execute("SELECT * FROM artifacts WHERE id = ?", (artifact_id,)).fetchone()
+        if row is None:
+            return None
+        return self._row_to_artifact(row)
+
+    def get_latest_artifact(self, run_id: str, artifact_type: str) -> Artifact | None:
+        row = self._conn.execute(
+            """
+            SELECT *
+              FROM artifacts
+             WHERE run_id = ? AND artifact_type = ?
+             ORDER BY version DESC, created_at DESC
+             LIMIT 1
+            """,
+            (run_id, artifact_type),
+        ).fetchone()
+        if row is None:
+            return None
+        return self._row_to_artifact(row)
+
+    def list_rounds(self, run_id: str) -> list[Round]:
+        rows = self._conn.execute(
+            "SELECT * FROM rounds WHERE run_id = ? ORDER BY created_at ASC",
+            (run_id,),
+        ).fetchall()
+        return [self._row_to_round(row) for row in rows]
+
+    def list_artifacts(self, run_id: str, artifact_type: str | None = None) -> list[Artifact]:
+        if artifact_type is None:
+            rows = self._conn.execute(
+                "SELECT * FROM artifacts WHERE run_id = ? ORDER BY version ASC, created_at ASC",
+                (run_id,),
+            ).fetchall()
+        else:
+            rows = self._conn.execute(
+                """
+                SELECT *
+                  FROM artifacts
+                 WHERE run_id = ? AND artifact_type = ?
+                 ORDER BY version ASC, created_at ASC
+                """,
+                (run_id, artifact_type),
+            ).fetchall()
+        return [self._row_to_artifact(row) for row in rows]
+
+    def list_artifact_chain(self, artifact_id: str) -> list[Artifact]:
+        chain: list[Artifact] = []
+        current = self.get_artifact(artifact_id)
+        while current is not None:
+            chain.append(current)
+            if current.previous_artifact_id is None:
+                break
+            current = self.get_artifact(current.previous_artifact_id)
+        chain.reverse()
+        return chain
+
+    def list_reviews(self, run_id: str) -> list[Review]:
+        rows = self._conn.execute(
+            """
+            SELECT rv.*
+              FROM reviews rv
+              JOIN rounds rd ON rd.id = rv.round_id
+             WHERE rd.run_id = ?
+             ORDER BY rv.created_at ASC
+            """,
+            (run_id,),
+        ).fetchall()
+        return [self._row_to_review(row) for row in rows]
+
+    def list_crs(self, run_id: str) -> list[CR]:
+        rows = self._conn.execute(
+            """
+            SELECT cr.*
+              FROM crs cr
+              JOIN rounds rd ON rd.id = cr.round_id
+             WHERE rd.run_id = ?
+             ORDER BY cr.created_at ASC
+            """,
+            (run_id,),
+        ).fetchall()
+        return [self._row_to_cr(row) for row in rows]
+
+    def list_decisions(self, run_id: str) -> list[Decision]:
+        rows = self._conn.execute(
+            """
+            SELECT *
+              FROM decisions
+             WHERE run_id = ?
+             ORDER BY round_number ASC, created_at ASC
+            """,
+            (run_id,),
+        ).fetchall()
+        return [self._row_to_decision(row) for row in rows]
 
     def insert_review(self, review: Review) -> None:
         self._conn.execute(
