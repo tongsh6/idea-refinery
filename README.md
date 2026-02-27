@@ -1,0 +1,67 @@
+# IdeaRefinery
+
+IdeaRefinery 是开源的“方案精炼引擎”内核，通过 CR 闭环与可度量 Gate，把 idea 收敛为可执行的 PRD/TECH_SPEC/EXEC_PLAN。
+
+## 目标
+- 输入 idea 自动输出三件套（PRD/TECH_SPEC/EXEC_PLAN）
+- 支持 OpenAI-compatible 端点与 Ollama 原生
+- 多轮 CR 闭环与 Gate 停机
+- 成本与上下文治理（预算/摘要/裁剪）
+- 全链路可回放
+
+## 开发
+```bash
+python3 -m pip install -e ".[dev]"
+pytest
+```
+
+## 运行
+```bash
+refinery run --idea "..." --out ./out
+```
+
+默认会执行三阶段流水线并输出：
+- `out/PRD.md`
+- `out/TECH_SPEC.md`
+- `out/EXEC_PLAN.md`
+
+如果只做本地验证，可加 `--dry-run --ollama`。
+
+## 多供应商接入
+
+支持两种方式：
+
+1. OpenAI-compatible 兼容端点（推荐）
+2. 原生插件（不兼容协议时）
+
+### CLI 方式（并存多个供应商）
+
+```bash
+refinery run \
+  --idea "..." \
+  --openai-provider "kimi,https://api.moonshot.cn/v1,moonshot-v1-8k,KIMI_API_KEY" \
+  --openai-provider "glm,https://open.bigmodel.cn/api/paas/v4,glm-4.5,GLM_API_KEY" \
+  --role-provider "author=kimi" \
+  --role-provider "editor=glm" \
+  --out ./out
+```
+
+### 环境变量方式
+
+```bash
+export OPENAI_COMPAT_PROVIDERS_JSON='[
+  {"name":"kimi","base_url":"https://api.moonshot.cn/v1","model":"moonshot-v1-8k","api_key_env":"KIMI_API_KEY"},
+  {"name":"glm","base_url":"https://open.bigmodel.cn/api/paas/v4","model":"glm-4.5","api_key_env":"GLM_API_KEY"}
+]'
+
+export ROLE_PROVIDER_MAP_JSON='{
+  "author":"kimi",
+  "editor":"glm",
+  "reviewer:value":"glm"
+}'
+```
+
+说明：
+- `--openai-provider` 可重复，按注册顺序作为 fallback 候选。
+- `--role-provider` 可重复，用于给特定角色指定优先 provider。
+- 未命中 role 映射时，按候选顺序进行 fallback。
