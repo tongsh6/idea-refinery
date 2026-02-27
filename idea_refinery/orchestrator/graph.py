@@ -6,7 +6,7 @@ import time
 from pathlib import Path
 from datetime import datetime, timezone
 from collections.abc import Iterable
-from typing import Literal, TypedDict, cast
+from typing import Literal, Protocol, TypedDict, cast
 
 from langgraph.graph import END, START, StateGraph
 
@@ -37,6 +37,10 @@ class RefineryState(TypedDict, total=True):
     stop_reason: str | None
     gate_reason: str
     changelog: str
+
+
+class _InvokableGraph(Protocol):
+    def invoke(self, input: RefineryState) -> object: ...
 
 
 TECH_SPEC_REQUIRED_SECTIONS: list[str] = [
@@ -302,8 +306,9 @@ def _complete_with_fallback(
     registry: ProviderRegistry,
     role: str,
     req: CompletionRequest,
-) -> CompletionResult:
+) -> tuple[CompletionResult, dict[str, object]]:
     last_error: Exception | None = None
+    attempts: list[dict[str, object]] = []
     for provider in registry.resolve_candidates(role):
         for attempt in range(3):
             try:
@@ -316,9 +321,32 @@ def _complete_with_fallback(
                     response_format=req.response_format,
                     extra=req.extra,
                 )
-                return _complete_sync(provider, next_req)
+                result = _complete_sync(provider, next_req)
+                attempts.append(
+                    {
+                        "provider": provider.name,
+                        "attempt": attempt + 1,
+                        "status": "success",
+                    }
+                )
+                used_providers = {str(item["provider"]) for item in attempts}
+                metadata: dict[str, object] = {
+                    "role": role,
+                    "attempt_count": len(attempts),
+                    "fallback_used": len(used_providers) > 1,
+                    "attempts": attempts,
+                }
+                return result, metadata
             except Exception as exc:  # noqa: BLE001
                 last_error = exc
+                attempts.append(
+                    {
+                        "provider": provider.name,
+                        "attempt": attempt + 1,
+                        "status": "error",
+                        "error": str(exc),
+                    }
+                )
                 if attempt < 2:
                     time.sleep(1 + attempt)
                     continue
@@ -361,7 +389,7 @@ def run_refinery(
 
         messages = build_author_prompt(state["idea"], artifact_type)
         req = CompletionRequest(messages=messages, model="")
-        result = _complete_with_fallback(registry, "author", req)
+        result, retry_meta = _complete_with_fallback(registry, "author", req)
         state["total_cost_usd"] += result.cost_usd
 
         rnd = Round(
@@ -375,6 +403,7 @@ def run_refinery(
             cost_usd=result.cost_usd,
             latency_ms=result.latency_ms,
             raw_output=result.content,
+            metadata=retry_meta,
         )
         store.insert_round(rnd)
 
@@ -402,7 +431,7 @@ def run_refinery(
                 state["round_number"],
             )
             req = CompletionRequest(messages=messages, model="")
-            result = _complete_with_fallback(registry, f"reviewer:{hat}", req)
+            result, retry_meta = _complete_with_fallback(registry, f"reviewer:{hat}", req)
             state["total_cost_usd"] += result.cost_usd
 
             rnd = Round(
@@ -416,6 +445,7 @@ def run_refinery(
                 cost_usd=result.cost_usd,
                 latency_ms=result.latency_ms,
                 raw_output=result.content,
+                metadata=retry_meta,
             )
             store.insert_round(rnd)
 
@@ -453,7 +483,7 @@ def run_refinery(
             state["round_number"],
         )
         req = CompletionRequest(messages=messages, model="")
-        result = _complete_with_fallback(registry, "editor", req)
+        result, retry_meta = _complete_with_fallback(registry, "editor", req)
         state["total_cost_usd"] += result.cost_usd
 
         rnd = Round(
@@ -467,6 +497,7 @@ def run_refinery(
             cost_usd=result.cost_usd,
             latency_ms=result.latency_ms,
             raw_output=result.content,
+            metadata=retry_meta,
         )
         store.insert_round(rnd)
 
@@ -516,8 +547,9 @@ def run_refinery(
     _ = builder.add_conditional_edges("gate", route_after_gate, {"review": "review", "end": END})
 
     graph = builder.compile()
+    invokable_graph = cast(_InvokableGraph, graph)
     try:
-        final_state = cast(RefineryState, graph.invoke(state))
+        final_state = cast(RefineryState, invokable_graph.invoke(state))
         prd_obj = _as_dict(parse_json(final_state.get("artifact_json", "{}")))
     except JSONParseError as exc:
         run.status = "failed"
@@ -527,15 +559,18 @@ def run_refinery(
         raise
 
     coverage, _missing = _coverage_for_artifact(artifact_type, prd_obj)
+    previous = store.get_latest_artifact(run.id, artifact_type)
+    artifact_version = previous.version + 1 if previous is not None else final_state.get("round_number", 1)
 
     artifact = Artifact(
         run_id=run.id,
         artifact_type=artifact_type,
-        version=final_state.get("round_number", 1),
+        version=artifact_version,
         content=prd_obj,
         raw_text=artifact_to_markdown(artifact_type, prd_obj),
         summary="",
         diff_summary=final_state.get("changelog", ""),
+        previous_artifact_id=previous.id if previous is not None else None,
         schema_coverage=coverage,
     )
     store.insert_artifact(artifact)
