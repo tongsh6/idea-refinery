@@ -41,3 +41,30 @@ def test_resolve_candidates_honors_role_provider_preference() -> None:
     names = [p.name for p in registry.resolve_candidates("author")]
     assert names[0] == "glm"
     assert set(names) == {"kimi", "glm"}
+
+
+def test_build_registry_with_native_providers() -> None:
+    registry = build_registry(
+        include_gemini=True,
+        gemini_api_key="g-key",
+        include_claude=True,
+        claude_api_key="c-key",
+    )
+    names = [p.name for p in registry.all()]
+    assert names == ["gemini", "claude"]
+
+
+def test_build_registry_requires_native_provider_keys() -> None:
+    try:
+        _ = build_registry(include_gemini=True)
+    except RuntimeError as exc:
+        assert "GEMINI_API_KEY" in str(exc)
+    else:
+        raise AssertionError("Expected GEMINI_API_KEY validation error")
+
+    try:
+        _ = build_registry(include_claude=True)
+    except RuntimeError as exc:
+        assert "CLAUDE_API_KEY" in str(exc)
+    else:
+        raise AssertionError("Expected CLAUDE_API_KEY validation error")

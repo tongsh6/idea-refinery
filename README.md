@@ -40,6 +40,8 @@ refinery run --idea "..." --out ./out
 1. OpenAI-compatible 兼容端点（推荐）
 2. 原生插件（不兼容协议时）
 
+原生插件当前内置：`Gemini`、`Claude`、`Ollama`
+
 ### CLI 方式（并存多个供应商）
 
 ```bash
@@ -71,3 +73,12 @@ export ROLE_PROVIDER_MAP_JSON='{
 - `--openai-provider` 可重复，按注册顺序作为 fallback 候选。
 - `--role-provider` 可重复，用于给特定角色指定优先 provider。
 - 未命中 role 映射时，按候选顺序进行 fallback。
+
+### 原生 Provider 快速启用
+
+```bash
+export GEMINI_API_KEY=...
+export CLAUDE_API_KEY=...
+
+refinery run --idea "..." --gemini --claude --out ./out
+```
