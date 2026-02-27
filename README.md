@@ -15,6 +15,12 @@ python3 -m pip install -e ".[dev]"
 pytest
 ```
 
+## Git 工作流
+- 项目统一采用 `main -> feature` 开发，`多个 feature -> 一个 release -> main` 发布。
+- 发布完成后删除已合并的 `feature/*` 与 `release/*` 分支。
+- 详细规范见：`context/tech/GITFLOW.md`
+- 发布前最少执行：`pytest` 和 `python -m build`
+
 ## 运行
 ```bash
 refinery run --idea "..." --out ./out
