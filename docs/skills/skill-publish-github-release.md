@@ -11,7 +11,7 @@ class PublishGitHubReleaseInput(BaseModel):
     release_branch: str  # 例如: release/v0.4.0
     tag_name: str        # 例如: v0.4.0
     title: str           # Release 标题
-    notes: str | None = None
+    notes: str  # Release Note（必填）
     create_github_release: bool = True
     remote: str = "origin"
     verify: bool = True
@@ -34,7 +34,7 @@ class PublishGitHubReleaseOutput(BaseModel):
 1. 在 `release/*` 分支执行验证（默认 `python3 -m pytest`、`python3 -m build`）。
 2. 将 `release/*` 合并到 `main` 并推送。
 3. 打版本 tag 并推送到远端。
-4. 使用 `gh release create` 创建 GitHub Release（可选）。
+4. 使用 `gh release create` 创建 GitHub Release（必须包含 Release Note）。
 5. 保留 `release/*` 分支，不做删除。
 
 ## 示例
@@ -46,6 +46,7 @@ Input:
   "release_branch": "release/v0.4.0",
   "tag_name": "v0.4.0",
   "title": "v0.4.0",
+  "notes": "Release note content...",
   "create_github_release": true,
   "verify": true
 }
@@ -70,5 +71,6 @@ Output:
 ## 边界约束
 
 - 不在未通过验证时创建 tag 或 GitHub Release。
+- 不允许缺少 Release Note 就发版。
 - 不覆盖已存在 tag。
 - 不删除 `release/*` 分支。

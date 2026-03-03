@@ -39,11 +39,14 @@ python3 scripts/release/gitflow_release.py start-release --version v0.4.0
 python3 scripts/release/gitflow_release.py finalize-release --version v0.4.0
 
 # 6) 完整发布（finalize + tag + GitHub Release）
-python3 scripts/release/gitflow_release.py publish-release --version v0.4.0 --title "v0.4.0"
+python3 scripts/release/gitflow_release.py publish-release --version v0.4.0 --title "v0.4.0" --notes "Release notes"
+
+# 或从文件读取 Release Note
+python3 scripts/release/gitflow_release.py publish-release --version v0.4.0 --title "v0.4.0" --notes-file ./release-notes/v0.4.0.md
 ```
 
 ## Dry Run
 
 ```bash
-python3 scripts/release/gitflow_release.py --dry-run publish-release --version v0.4.0
+python3 scripts/release/gitflow_release.py --dry-run publish-release --version v0.4.0 --notes "Release notes"
 ```

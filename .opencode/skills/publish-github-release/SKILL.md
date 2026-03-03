@@ -24,7 +24,7 @@ Policy in this project:
 Use the project script:
 
 ```bash
-python3 scripts/release/gitflow_release.py publish-release --version <vX.Y.Z> --title "<title>" [--notes "..."]
+python3 scripts/release/gitflow_release.py publish-release --version <vX.Y.Z> --title "<title>" --notes-file <release-note.md>
 ```
 
 Related finalize-only action:
@@ -45,6 +45,7 @@ Default verification before merge/tag:
 - Do not publish when verification fails.
 - Do not overwrite existing tags.
 - Do not delete `release/*` branches.
+- Do not publish without release notes (`--notes` or `--notes-file`).
 
 ## Quick Example
 

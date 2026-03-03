@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+from pathlib import Path
 import shlex
 import subprocess
 import sys
@@ -117,15 +118,14 @@ def finalize_release(cfg: RepoConfig, version: str, verify: bool) -> None:
     run(["git", "push", cfg.remote, cfg.main], dry_run=cfg.dry_run)
 
 
-def publish_release(cfg: RepoConfig, version: str, title: str | None, notes: str | None, verify: bool) -> None:
+def publish_release(cfg: RepoConfig, version: str, title: str | None, notes: str, verify: bool) -> None:
     release_branch, tag = normalize_release(version)
     finalize_release(cfg, version, verify)
     run(["git", "tag", tag], dry_run=cfg.dry_run)
     run(["git", "push", cfg.remote, tag], dry_run=cfg.dry_run)
 
     release_title = title or tag
-    body = notes or f"Release {tag}"
-    run(["gh", "release", "create", tag, "--title", release_title, "--notes", body], dry_run=cfg.dry_run)
+    run(["gh", "release", "create", tag, "--title", release_title, "--notes", notes], dry_run=cfg.dry_run)
     print(f"Release branch kept: {release_branch}")
 
 
@@ -161,7 +161,9 @@ def build_parser() -> argparse.ArgumentParser:
     publish_parser = subparsers.add_parser("publish-release", help="Finalize release and publish GitHub release")
     _ = publish_parser.add_argument("--version", required=True)
     _ = publish_parser.add_argument("--title")
-    _ = publish_parser.add_argument("--notes")
+    notes_group = publish_parser.add_mutually_exclusive_group(required=True)
+    _ = notes_group.add_argument("--notes", help="Inline release notes content")
+    _ = notes_group.add_argument("--notes-file", help="Path to release notes file")
     _ = publish_parser.add_argument("--skip-verify", action="store_true")
 
     return parser
@@ -194,11 +196,18 @@ def main() -> int:
                 not bool(getattr(args, "skip_verify")),
             )
         elif action == "publish-release":
+            notes = getattr(args, "notes", None)
+            notes_file = getattr(args, "notes_file", None)
+            if notes is None and notes_file is not None:
+                notes = Path(str(notes_file)).read_text(encoding="utf-8")
+            if notes is None:
+                parser.error("publish-release requires --notes or --notes-file")
+
             publish_release(
                 cfg,
                 str(getattr(args, "version")),
                 getattr(args, "title", None),
-                getattr(args, "notes", None),
+                str(notes),
                 not bool(getattr(args, "skip_verify")),
             )
         else:

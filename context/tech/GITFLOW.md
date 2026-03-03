@@ -26,7 +26,7 @@
 5. 在 `release/vX.Y.Z` 完成回归验证（至少 `python3 -m pytest` + `python3 -m build`）。
 6. 将 `release/vX.Y.Z` 合并到 `main`。
 7. 在 `main` 打标签 `vX.Y.Z` 并推送 tag。
-8. 创建 GitHub Release，并附发布说明。
+8. 创建 GitHub Release，并附完整 Release Note（必填）。
 9. 保留 `release/*` 分支用于追溯和补丁分支来源。
 
 ## 提交流程约束
@@ -107,8 +107,8 @@ git push origin main
 git tag v0.1.1
 git push origin v0.1.1
 
-# 9) 创建 GitHub Release
-gh release create v0.1.1 --title "v0.1.1" --notes "Release v0.1.1"
+# 9) 创建 GitHub Release（Release Note 必填）
+gh release create v0.1.1 --title "v0.1.1" --notes-file ./release-notes/v0.1.1.md
 
 # 10) release 分支保留，不删除
 ```
@@ -128,8 +128,8 @@ python3 scripts/release/gitflow_release.py start-feature --name provider-routing
 # feature 合并到 develop 后自动删除 feature
 python3 scripts/release/gitflow_release.py merge-feature --name provider-routing-improve
 
-# 创建并发布 release（保留 release 分支）
-python3 scripts/release/gitflow_release.py publish-release --version v0.1.1 --title "v0.1.1"
+# 创建并发布 release（保留 release 分支，Release Note 必填）
+python3 scripts/release/gitflow_release.py publish-release --version v0.1.1 --title "v0.1.1" --notes-file ./release-notes/v0.1.1.md
 ```
 
 ## 与当前项目对齐

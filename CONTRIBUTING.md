@@ -71,7 +71,7 @@ git push -u origin feature/<your-topic>
 - [ ] `pyproject.toml` 版本号已更新
 - [ ] `context/tech/GITFLOW.md` 发布流程已遵循
 - [ ] release 分支验证通过后，计划在 main 打标签 `vX.Y.Z`
-- [ ] GitHub Release 草稿已准备好
+- [ ] GitHub Release Note 已准备好（建议使用 `release-notes/vX.Y.Z.md`）
 
 ---
 
@@ -108,7 +108,7 @@ docs: update quick-start example in README
    git tag vX.Y.Z
    git push origin vX.Y.Z
    ```
-6. 创建 GitHub Release
+6. 基于 Release Note 创建 GitHub Release（必填）
 7. 删除已合并的 `feature/*` 分支，保留 `release/*` 分支：
    ```bash
    git branch -d feature/xxx && git push origin --delete feature/xxx
