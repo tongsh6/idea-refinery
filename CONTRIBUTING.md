@@ -69,7 +69,7 @@ git push -u origin feature/<your-topic>
 - [ ] `python3 -m pytest` 全部通过
 - [ ] `python3 -m build` 成功产出 sdist/wheel
 - [ ] `pyproject.toml` 版本号已更新
-- [ ] `GITFLOW.md` 发布流程已遵循
+- [ ] `context/tech/GITFLOW.md` 发布流程已遵循
 - [ ] release 分支验证通过后，计划在 main 打标签 `vX.Y.Z`
 - [ ] GitHub Release 草稿已准备好
 
