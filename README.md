@@ -8,6 +8,7 @@ IdeaRefinery 是开源的“方案精炼引擎”内核，通过 CR 闭环与可
 - 多轮 CR 闭环与 Gate 停机
 - 成本与上下文治理（预算/摘要/裁剪）
 - 全链路可回放
+- 提供 GUI 工作台（先 MVP）用于可视化 run 状态、CR 处理与 Gate 决策
 
 ## 开发
 ```bash
@@ -32,6 +33,12 @@ refinery run --idea "..." --out ./out
 - `out/EXEC_PLAN.md`
 
 如果只做本地验证，可加 `--dry-run --ollama`。
+
+## GUI 计划与预览（草案）
+- GUI 已纳入项目计划（见 `context/business/DOMAIN.md` 的里程碑与验收标准）。
+- 当前提供一个可审阅页面原型：`prototypes/gui/review-workbench-v3.html`
+- 打开方式（macOS）：`open prototypes/gui/review-workbench-v3.html`
+- v3 交互重点：Panel 0 先输入 idea（必填），文件上传作为可选补充材料。
 
 ## 多供应商接入
 

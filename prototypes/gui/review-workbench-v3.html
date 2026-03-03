@@ -1,0 +1,1080 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>IdeaRefinery GUI MVP - Review Workbench v3</title>
+  <style>
+    :root {
+      --bg: #f4f1ea;
+      --panel: #fffdf8;
+      --ink: #1d2b36;
+      --muted: #65727d;
+      --line: #d8d1c4;
+      --accent: #006c67;
+      --accent-soft: #d7f0ec;
+      --warn: #b56a22;
+      --danger: #a23d3d;
+      --pass: #0e7a38;
+      --shadow: 0 10px 30px rgba(29, 43, 54, 0.08);
+      --radius: 14px;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: "Avenir Next", "PingFang SC", "Hiragino Sans GB", sans-serif;
+      color: var(--ink);
+      background: radial-gradient(circle at 15% 20%, #fff 0%, var(--bg) 45%, #ece6d8 100%);
+    }
+
+    .shell {
+      max-width: 1180px;
+      margin: 28px auto;
+      padding: 0 16px 32px;
+      display: grid;
+      gap: 14px;
+    }
+
+    .topbar {
+      background: linear-gradient(135deg, #12394b 0%, #1b5964 55%, #2f7d72 100%);
+      color: #f6f9f8;
+      border-radius: var(--radius);
+      padding: 18px 20px;
+      box-shadow: var(--shadow);
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .topbar h1 { margin: 0; font-size: 24px; font-weight: 600; }
+    .topbar p { margin: 5px 0 0; color: #d7e8e6; }
+
+    .topbar-actions {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .lang-switch {
+      background: rgba(255, 255, 255, 0.15);
+      border: 1px solid rgba(255, 255, 255, 0.3);
+      color: #fff;
+      border-radius: 6px;
+      padding: 4px 8px;
+      font-size: 12px;
+      cursor: pointer;
+      backdrop-filter: blur(4px);
+    }
+
+    .gate-pill {
+      border: 1px solid rgba(255, 255, 255, 0.36);
+      border-radius: 999px;
+      padding: 8px 14px;
+      font-size: 13px;
+      font-weight: 600;
+      backdrop-filter: blur(4px);
+      white-space: nowrap;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: 1.15fr 1fr;
+      gap: 14px;
+    }
+
+    .card {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      padding: 16px;
+      box-shadow: var(--shadow);
+      display: flex;
+      flex-direction: column;
+    }
+
+    .card h2 {
+      margin: 0 0 12px;
+      font-size: 16px;
+      letter-spacing: 0.2px;
+    }
+
+    .muted { color: var(--muted); }
+
+    /* Timeline & Chain of Thought */
+    .timeline {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 8px;
+    }
+
+    .stage-btn {
+      border: 1px solid var(--line);
+      background: #fff;
+      border-radius: 10px;
+      padding: 10px;
+      text-align: left;
+      cursor: pointer;
+      transition: 0.2s ease;
+    }
+
+    .stage-btn:hover { transform: translateY(-1px); border-color: #9ea9ae; }
+    .stage-btn.active {
+      border-color: var(--accent);
+      background: var(--accent-soft);
+      box-shadow: inset 0 0 0 1px rgba(0, 108, 103, 0.15);
+    }
+
+    .stage-name { font-size: 13px; font-weight: 700; margin-bottom: 6px; }
+    .stage-meta { font-size: 12px; color: var(--muted); }
+
+    .detail {
+      margin-top: 12px;
+      padding: 12px;
+      border-radius: 10px;
+      border: 1px dashed #b9c4c7;
+      background: #fafcfb;
+      flex-grow: 1;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .cot-log {
+      margin-top: 12px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-size: 12px;
+      color: #4a5568;
+      background: #f1f5f9;
+      border-radius: 6px;
+      padding: 10px;
+      overflow-y: auto;
+      max-height: 150px;
+      border: 1px solid #e2e8f0;
+    }
+
+    .cot-entry {
+      margin-bottom: 6px;
+      padding-left: 12px;
+      border-left: 2px solid #cbd5e1;
+    }
+    .cot-entry.system { border-left-color: #94a3b8; color: #64748b; }
+    .cot-entry.agent { border-left-color: #0ea5e9; }
+    .cot-entry.tool { border-left-color: #10b981; }
+    .cot-time { color: #94a3b8; font-size: 10px; margin-right: 6px; }
+
+    /* CR Workspace */
+    .chips { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 10px; }
+    .chip {
+      border: 1px solid var(--line);
+      background: #fff;
+      border-radius: 999px;
+      padding: 5px 10px;
+      font-size: 12px;
+      cursor: pointer;
+    }
+    .chip.active { border-color: var(--accent); color: var(--accent); background: #f0fbf8; }
+
+    .cr-list { display: grid; gap: 8px; }
+    .cr-item {
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 10px;
+      display: grid;
+      grid-template-columns: auto 1fr auto;
+      gap: 10px;
+      align-items: start;
+    }
+
+    .sev { font-size: 11px; padding: 3px 7px; border-radius: 999px; border: 1px solid; }
+    .sev.blocking { color: var(--danger); border-color: #d5a2a2; background: #f9ecec; }
+    .sev.major { color: var(--warn); border-color: #d9b894; background: #fbf4ea; }
+    .sev.minor { color: #1e5f8f; border-color: #9ebfdb; background: #ecf3fa; }
+
+    .progress {
+      margin-top: 10px;
+      height: 8px;
+      border-radius: 999px;
+      background: #e8e5dc;
+      overflow: hidden;
+    }
+    .progress > span {
+      display: block;
+      width: 0;
+      height: 100%;
+      background: linear-gradient(90deg, #0a7a4e 0%, #43a56e 100%);
+      transition: width 0.25s ease;
+    }
+
+    /* Gate Actions */
+    .gate-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+    .gate-actions button {
+      border: 1px solid var(--line);
+      border-radius: 9px;
+      padding: 8px 10px;
+      background: #fff;
+      cursor: pointer;
+      font-weight: 600;
+    }
+
+    .gate-actions button[data-decision="PASS"] { border-color: #8bc59b; color: #16693b; }
+    .gate-actions button[data-decision="FAIL"] { border-color: #d1a179; color: #8a4b1c; }
+    .gate-actions button[data-decision="STOP"] { border-color: #c6b5a0; color: #6e5b43; }
+
+    .artifact a {
+      display: inline-block;
+      margin-right: 10px;
+      color: #0c5670;
+      text-decoration: none;
+      border-bottom: 1px dashed #0c5670;
+    }
+
+    @media (max-width: 900px) {
+      .grid { grid-template-columns: 1fr; }
+      .timeline { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .topbar { flex-direction: column; align-items: flex-start; }
+    }
+
+    /* Panel 0 & Panel 1 New CSS */
+    .header-actions {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 12px;
+    }
+
+    .drop-zone {
+      min-height: 120px;
+      border: 2px dashed var(--line);
+      border-radius: var(--radius);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      background: #fafcfb;
+      margin-bottom: 4px;
+    }
+    .drop-zone:hover, .drop-zone.drag-over {
+      border-color: var(--accent);
+      background: var(--accent-soft);
+    }
+    
+    .file-list {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      margin-top: 12px;
+    }
+    .file-row {
+      display: flex;
+      align-items: center;
+      padding: 10px 14px;
+      background: #fff;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      font-size: 13px;
+      animation: slideIn 0.2s ease;
+    }
+    .file-row .file-icon {
+      margin-right: 12px;
+      font-size: 18px;
+    }
+    .file-row .file-name {
+      flex-grow: 1;
+      font-weight: 500;
+    }
+    .file-row .file-size {
+      color: var(--muted);
+      margin-right: 16px;
+      font-size: 12px;
+    }
+    .file-row .file-delete {
+      cursor: pointer;
+      color: var(--muted);
+      font-size: 16px;
+      transition: color 0.2s;
+      padding: 4px;
+      border-radius: 4px;
+    }
+    .file-row .file-delete:hover {
+      color: var(--danger);
+      background: #f9ecec;
+    }
+
+    @keyframes slideIn {
+      from { opacity: 0; transform: translateY(-8px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .btn-primary {
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      padding: 8px 16px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: opacity 0.2s;
+    }
+    .btn-primary:disabled {
+      background: var(--muted);
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+    .btn-secondary {
+      background: #fff;
+      color: var(--ink);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 8px 16px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .btn-secondary:hover {
+      border-color: var(--muted);
+    }
+
+    .tabs {
+      display: flex;
+      gap: 16px;
+      border-bottom: 1px solid var(--line);
+      padding-bottom: 8px;
+      margin-bottom: 16px;
+    }
+    .tab-btn {
+      background: transparent;
+      border: none;
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--muted);
+      cursor: pointer;
+      padding: 4px 8px;
+      position: relative;
+    }
+    .tab-btn.active {
+      color: var(--accent);
+    }
+    .tab-btn.active::after {
+      content: '';
+      position: absolute;
+      bottom: -9px;
+      left: 0;
+      right: 0;
+      height: 2px;
+      background: var(--accent);
+    }
+
+    .profile-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 14px;
+    }
+    @media (max-width: 768px) {
+      .profile-grid { grid-template-columns: 1fr; }
+    }
+
+    .profile-card {
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 16px;
+      background: #fff;
+      transition: all 0.2s;
+      display: flex;
+      flex-direction: column;
+    }
+    .profile-card.selected {
+      border-color: var(--accent);
+      background: var(--accent-soft);
+      box-shadow: inset 0 0 0 1px rgba(0, 108, 103, 0.15);
+    }
+    .profile-card .profile-name {
+      font-weight: 600;
+      font-size: 14px;
+      margin-bottom: 6px;
+    }
+    .profile-card .profile-desc {
+      font-size: 12px;
+      margin-bottom: 16px;
+      flex-grow: 1;
+      line-height: 1.5;
+    }
+    .profile-card .select-profile {
+      align-self: flex-start;
+      font-size: 12px;
+      padding: 6px 14px;
+    }
+
+    textarea#ideaInput {
+      width: 100%;
+      min-height: 100px;
+      font-family: "Avenir Next", "PingFang SC", "Hiragino Sans GB", sans-serif;
+      font-size: 14px;
+      padding: 12px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      resize: vertical;
+      background: #fafcfb;
+      color: var(--ink);
+      line-height: 1.6;
+      margin-bottom: 4px;
+    }
+    textarea#ideaInput:focus {
+      outline: none;
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(0, 108, 103, 0.08);
+    }
+
+    textarea#customProfileJson {
+      width: 100%;
+      min-height: 120px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      padding: 12px;
+      font-size: 13px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      resize: vertical;
+      background: #fafcfb;
+    }
+    textarea#customProfileJson:focus {
+      outline: none;
+      border-color: var(--accent);
+    }
+
+    .badge-close {
+      cursor: pointer;
+      margin-left: 6px;
+      font-size: 14px;
+      opacity: 0.7;
+    }
+    .badge-close:hover {
+      color: var(--danger);
+      opacity: 1;
+    }
+  </style>
+</head>
+<body>
+  <main class="shell">
+    <section class="topbar">
+      <div>
+        <h1 data-i18n="title">IdeaRefinery Review Workbench</h1>
+        <p data-i18n="subtitle">Run #R-2026-02-28 · 从 idea 到 Gate 的可视化审阅面板（MVP 草案 v3）</p>
+      </div>
+      <div class="topbar-actions">
+        <button id="langToggle" class="lang-switch">EN / 中文</button>
+        <div id="gatePill" class="gate-pill" data-i18n="gate_waiting">Gate: WAITING</div>
+      </div>
+    </section>
+
+    <!-- NEW Panel 0: File Upload -->
+    <article class="card">
+      <div class="header-actions">
+        <h2 style="margin: 0;">0) 方案输入 / Idea & Files</h2>
+        <div style="display: flex; gap: 8px; align-items: center;">
+          <span id="profileBadge" style="display: none; align-items: center; background: var(--accent-soft); color: var(--accent); padding: 4px 10px; border-radius: 6px; font-size: 13px; font-weight: 600; border: 1px solid var(--accent);">
+            <span id="profileBadgeName"></span>
+            <span class="badge-close" onclick="clearProfile()">✕</span>
+          </span>
+          <button class="btn-primary" id="btnStartRun" disabled data-i18n="upload_start">开始 Run</button>
+          <button class="btn-secondary" id="btnAddMore" data-i18n="upload_add_more">+ 添加更多</button>
+        </div>
+      </div>
+      
+      <div>
+        <label data-i18n="idea_label" style="display: block; font-weight: 600; margin-bottom: 8px;">💡 你的 Idea</label>
+        <textarea id="ideaInput" data-i18n="idea_placeholder" placeholder="用一句话或几段话描述你的 idea，例如：为 IdeaRefinery 添加 GUI 工作台，支持多文件上传和可视化 Run 状态…"></textarea>
+      </div>
+
+      <div data-i18n="upload_title" style="margin-top: 16px; font-weight: 600; font-size: 14px; margin-bottom: 8px;">📎 补充材料（可选）/ Supplementary Files (Optional)</div>
+      
+      <div id="dropZone" class="drop-zone">
+        <p class="muted" data-i18n="upload_hint">拖拽文件或目录到此处 / 点击选择</p>
+        <input type="file" id="fileInput" multiple style="display: none;" />
+      </div>
+
+      <div id="fileList" class="file-list"></div>
+    </article>
+
+    <!-- NEW Panel 1: Job Profile Config -->
+    <article class="card">
+      <h2 data-i18n="profile_title" style="margin-bottom: 12px;">0.5) 角色配置 / Job Profile Configuration</h2>
+      <div class="tabs">
+        <button class="tab-btn active" data-tab="library" data-i18n="profile_tab_library">预设库</button>
+        <button class="tab-btn" data-tab="custom" data-i18n="profile_tab_custom">自定义</button>
+      </div>
+      
+      <div id="tabLibrary" class="tab-content active">
+        <div class="profile-grid">
+          <div class="profile-card" data-profile="pm">
+            <div class="profile-name" data-i18n="profile_pm_name">产品经理</div>
+            <div class="profile-desc muted" data-i18n="profile_pm_desc">价值对齐、范围管控、用户故事验收</div>
+            <button class="btn-secondary select-profile" data-profile="pm" data-i18n="profile_select_btn">选择</button>
+          </div>
+          <div class="profile-card" data-profile="tl">
+            <div class="profile-name" data-i18n="profile_tl_name">技术负责人</div>
+            <div class="profile-desc muted" data-i18n="profile_tl_desc">架构可行性、技术债、接口规范</div>
+            <button class="btn-secondary select-profile" data-profile="tl" data-i18n="profile_select_btn">选择</button>
+          </div>
+          <div class="profile-card" data-profile="ae">
+            <div class="profile-name" data-i18n="profile_ae_name">算法工程师</div>
+            <div class="profile-desc muted" data-i18n="profile_ae_desc">模型评估、数据质量、实验设计</div>
+            <button class="btn-secondary select-profile" data-profile="ae" data-i18n="profile_select_btn">选择</button>
+          </div>
+          <div class="profile-card" data-profile="da">
+            <div class="profile-name" data-i18n="profile_da_name">数据分析师</div>
+            <div class="profile-desc muted" data-i18n="profile_da_desc">指标定义、分析框架、数据治理</div>
+            <button class="btn-secondary select-profile" data-profile="da" data-i18n="profile_select_btn">选择</button>
+          </div>
+        </div>
+      </div>
+      
+      <div id="tabCustom" class="tab-content" style="display: none;">
+        <textarea id="customProfileJson" data-i18n="profile_custom_placeholder" placeholder='{"name": "My Role", "focus": ["..."], "hats": ["value", "risk"]}'></textarea>
+        <div style="margin-top: 8px; display: flex; align-items: center; gap: 12px;">
+          <button class="btn-secondary" id="btnImportJson" data-i18n="profile_import_btn">导入</button>
+          <span id="jsonError" style="color: var(--danger); display: none; font-size: 13px;" data-i18n="profile_json_error">JSON 格式无效</span>
+        </div>
+      </div>
+    </article>
+
+    <section class="grid">
+      <article class="card">
+        <h2 data-i18n="timeline_title">1) Pipeline Timeline & Execution Trace</h2>
+        <div class="timeline" id="timeline">
+          <button class="stage-btn active" data-stage="Draft" data-time="08m 12s">
+            <div class="stage-name">Draft</div>
+            <div class="stage-meta"><span data-i18n="status_done">done</span> · 08m 12s</div>
+          </button>
+          <button class="stage-btn" data-stage="Review" data-time="14m 31s">
+            <div class="stage-name">Review</div>
+            <div class="stage-meta"><span data-i18n="status_done">done</span> · 14m 31s</div>
+          </button>
+          <button class="stage-btn" data-stage="Edit" data-time="11m 07s">
+            <div class="stage-name">Edit</div>
+            <div class="stage-meta"><span data-i18n="status_in_progress">in progress</span> · 11m 07s</div>
+          </button>
+          <button class="stage-btn" data-stage="Gate" data-time="--">
+            <div class="stage-name">Gate</div>
+            <div class="stage-meta"><span data-i18n="status_waiting">waiting</span> · --</div>
+          </button>
+        </div>
+        <div class="detail" id="stageDetail">
+          <strong>Draft</strong>
+          <p class="muted" id="stageNote" data-i18n="note_draft">作者产出 PRD v0.1，目标与范围已冻结。</p>
+          <div class="cot-log" id="cotLog">
+            <div class="cot-entry system"><span class="cot-time">00:00</span>[System] Initiating Draft phase with model: claude-3-5-sonnet</div>
+            <div class="cot-entry agent"><span class="cot-time">00:02</span>[Author] Analyzing input idea: "Add GUI workbench for IdeaRefinery"</div>
+            <div class="cot-entry tool"><span class="cot-time">00:05</span>[Tool: Read] Reading context/business/DOMAIN.md</div>
+            <div class="cot-entry agent"><span class="cot-time">00:12</span>[Author] Generating PRD structure based on schema...</div>
+            <div class="cot-entry system"><span class="cot-time">08:12</span>[System] Draft phase completed. Output saved to Artifact Store.</div>
+          </div>
+        </div>
+      </article>
+
+      <article class="card">
+        <h2 data-i18n="gate_title">2) Gate Decision Preview</h2>
+        <div id="gateReason" class="muted" data-i18n="gate_reason_waiting">当前 Blocking CR = 1，尚不满足 PASS 条件（Blocking=0 且 avgScore≥8）。</div>
+        <div class="gate-actions">
+          <button data-decision="PASS" data-i18n="btn_sim_pass">Simulate PASS</button>
+          <button data-decision="FAIL" data-i18n="btn_sim_fail">Simulate FAIL</button>
+          <button data-decision="STOP" data-i18n="btn_sim_stop">Simulate STOP</button>
+        </div>
+      </article>
+    </section>
+
+    <section class="grid">
+      <article class="card">
+        <h2 data-i18n="cr_title">3) CR Workspace</h2>
+        <div class="chips" id="chips">
+          <button class="chip active" data-filter="all" data-i18n="filter_all">All</button>
+          <button class="chip" data-filter="blocking">Blocking</button>
+          <button class="chip" data-filter="major">Major</button>
+          <button class="chip" data-filter="minor">Minor</button>
+        </div>
+
+        <div class="cr-list" id="crList">
+          <label class="cr-item" data-sev="blocking">
+            <input type="checkbox" class="cr-check" />
+            <div>
+              <div><span class="sev blocking">Blocking</span> <span data-i18n="cr_1_title">验收标准缺少量化指标</span></div>
+              <div class="muted" data-i18n="cr_1_desc">acceptance: 必须补充可验证指标（阈值/计算口径）</div>
+            </div>
+            <span class="muted" data-i18n="status_open">open</span>
+          </label>
+
+          <label class="cr-item" data-sev="major">
+            <input type="checkbox" class="cr-check" checked />
+            <div>
+              <div><span class="sev major">Major</span> <span data-i18n="cr_2_title">风险章节缺少 fallback 场景</span></div>
+              <div class="muted" data-i18n="cr_2_desc">已处理：补充 provider 限流/超时回退路径</div>
+            </div>
+            <span class="muted" data-i18n="status_closed">closed</span>
+          </label>
+
+          <label class="cr-item" data-sev="minor">
+            <input type="checkbox" class="cr-check" checked />
+            <div>
+              <div><span class="sev minor">Minor</span> <span data-i18n="cr_3_title">术语表未给出中英文映射</span></div>
+              <div class="muted" data-i18n="cr_3_desc">已处理：新增 glossary 表格</div>
+            </div>
+            <span class="muted" data-i18n="status_closed">closed</span>
+          </label>
+        </div>
+
+        <div class="muted" id="progressText" style="margin-top:10px;">CR Closed: 2 / 3</div>
+        <div class="progress"><span id="progressBar"></span></div>
+      </article>
+
+      <article class="card">
+        <h2 data-i18n="artifact_title">4) Artifact Preview Entry</h2>
+        <p class="muted" data-i18n="artifact_desc">点击可跳到对应导出文档。MVP 阶段先用本地文件链接模拟。</p>
+        <div class="artifact">
+          <a href="../../out/PRD.md" target="_blank" rel="noreferrer" data-i18n="link_prd">Open PRD.md</a>
+          <a href="../../out/TECH_SPEC.md" target="_blank" rel="noreferrer" data-i18n="link_tech">Open TECH_SPEC.md</a>
+          <a href="../../out/EXEC_PLAN.md" target="_blank" rel="noreferrer" data-i18n="link_plan">Open EXEC_PLAN.md</a>
+        </div>
+      </article>
+    </section>
+  </main>
+
+  <script>
+    // i18n Dictionary
+    const i18n = {
+      zh: {
+        title: "IdeaRefinery Review Workbench",
+        subtitle: "Run #R-2026-02-28 · 从 idea 到 Gate 的可视化审阅面板（MVP 草案 v3）",
+        gate_waiting: "Gate: 等待中",
+        gate_pass: "Gate: 通过",
+        gate_fail: "Gate: 驳回",
+        gate_stop: "Gate: 终止",
+        timeline_title: "1) 阶段时间线与执行轨迹",
+        status_done: "已完成",
+        status_in_progress: "进行中",
+        status_waiting: "等待中",
+        status_open: "待处理",
+        status_closed: "已关闭",
+        note_draft: "作者产出 PRD v0.1，目标与范围已冻结。",
+        note_review: "Reviewer 多帽子审查，产出结构化 CR（含 acceptance）。",
+        note_edit: "Editor 逐条处理 CR，当前仍有 1 条 Blocking 未关闭。",
+        note_gate: "Gate 等待 Blocking 清零与平均分达到阈值后再判定。",
+        gate_title: "2) Gate 决策预览",
+        gate_reason_waiting: "当前 Blocking CR = 1，尚不满足 PASS 条件（Blocking=0 且 avgScore≥8）。",
+        gate_reason_pass: "PASS: avgScore>=8 且 Blocking=0，允许进入下一阶段。",
+        gate_reason_fail: "FAIL: 仍存在 Blocking 或关键章节缺失，需继续 Edit。",
+        gate_reason_stop: "STOP: 达到预算/轮次/超时边界，流程硬停。",
+        btn_sim_pass: "模拟 PASS",
+        btn_sim_fail: "模拟 FAIL",
+        btn_sim_stop: "模拟 STOP",
+        cr_title: "3) CR 工作区",
+        filter_all: "全部",
+        cr_1_title: "验收标准缺少量化指标",
+        cr_1_desc: "acceptance: 必须补充可验证指标（阈值/计算口径）",
+        cr_2_title: "风险章节缺少 fallback 场景",
+        cr_2_desc: "已处理：补充 provider 限流/超时回退路径",
+        cr_3_title: "术语表未给出中英文映射",
+        cr_3_desc: "已处理：新增 glossary 表格",
+        artifact_title: "4) 产物预览入口",
+        artifact_desc: "点击可跳到对应导出文档。MVP 阶段先用本地文件链接模拟。",
+        link_prd: "打开 PRD.md",
+        link_tech: "打开 TECH_SPEC.md",
+        link_plan: "打开 EXEC_PLAN.md",
+        cr_closed_text: "CR 已关闭",
+        
+        // Panel 0
+        idea_label: "💡 你的 Idea",
+        idea_placeholder: "用一句话或几段话描述你的 idea，例如：为 IdeaRefinery 添加 GUI 工作台，支持多文件上传和可视化 Run 状态…",
+        upload_title: "📎 补充材料（可选）",
+        upload_hint: "拖拽文件或目录到此处 / 点击选择",
+        upload_start: "开始 Run",
+        upload_add_more: "+ 添加更多",
+        // Panel 1
+        profile_title: "0.5) 角色配置 / Job Profile Configuration",
+        profile_tab_library: "预设库",
+        profile_tab_custom: "自定义",
+        profile_pm_name: "产品经理",
+        profile_pm_desc: "价值对齐、范围管控、用户故事验收",
+        profile_tl_name: "技术负责人",
+        profile_tl_desc: "架构可行性、技术债、接口规范",
+        profile_ae_name: "算法工程师",
+        profile_ae_desc: "模型评估、数据质量、实验设计",
+        profile_da_name: "数据分析师",
+        profile_da_desc: "指标定义、分析框架、数据治理",
+        profile_select_btn: "选择",
+        profile_custom_placeholder: '例如: {"name": "My Role", "focus": ["..."], "hats": ["value", "risk"]}',
+        profile_import_btn: "导入",
+        profile_json_error: "JSON 格式无效"
+      },
+      en: {
+        title: "IdeaRefinery Review Workbench",
+        subtitle: "Run #R-2026-02-28 · Visual Review Panel from Idea to Gate (MVP Draft v3)",
+        gate_waiting: "Gate: WAITING",
+        gate_pass: "Gate: PASS",
+        gate_fail: "Gate: FAIL",
+        gate_stop: "Gate: STOP",
+        timeline_title: "1) Pipeline Timeline & Execution Trace",
+        status_done: "done",
+        status_in_progress: "in progress",
+        status_waiting: "waiting",
+        status_open: "open",
+        status_closed: "closed",
+        note_draft: "Author generated PRD v0.1, goals and scope frozen.",
+        note_review: "Reviewers performed multi-hat review, generated structured CRs.",
+        note_edit: "Editor processing CRs, 1 Blocking CR remains open.",
+        note_gate: "Gate waiting for 0 Blocking CRs and target avgScore.",
+        gate_title: "2) Gate Decision Preview",
+        gate_reason_waiting: "Current Blocking CR = 1, PASS conditions not met (Blocking=0 & avgScore≥8).",
+        gate_reason_pass: "PASS: avgScore>=8 & Blocking=0, proceeding to next phase.",
+        gate_reason_fail: "FAIL: Blocking CRs or missing sections exist, returning to Edit.",
+        gate_reason_stop: "STOP: Budget/Round/Timeout limits reached, hard stop.",
+        btn_sim_pass: "Simulate PASS",
+        btn_sim_fail: "Simulate FAIL",
+        btn_sim_stop: "Simulate STOP",
+        cr_title: "3) CR Workspace",
+        filter_all: "All",
+        cr_1_title: "Acceptance criteria lacks quantitative metrics",
+        cr_1_desc: "acceptance: Must add verifiable metrics (thresholds/calculation methods)",
+        cr_2_title: "Risk section missing fallback scenarios",
+        cr_2_desc: "Resolved: Added provider rate-limit/timeout fallback paths",
+        cr_3_title: "Glossary missing EN/ZH mapping",
+        cr_3_desc: "Resolved: Added glossary table",
+        artifact_title: "4) Artifact Preview Entry",
+        artifact_desc: "Click to open exported documents. MVP uses local file links.",
+        link_prd: "Open PRD.md",
+        link_tech: "Open TECH_SPEC.md",
+        link_plan: "Open EXEC_PLAN.md",
+        cr_closed_text: "CR Closed",
+        
+        // Panel 0
+        idea_label: "💡 Your Idea",
+        idea_placeholder: "Describe your idea in a sentence or a few paragraphs, e.g.: Add a GUI workbench for IdeaRefinery with multi-file upload and visual Run status...",
+        upload_title: "📎 Supplementary Files (Optional)",
+        upload_hint: "Drag and drop files/directories here or click to select",
+        upload_start: "Start Run",
+        upload_add_more: "+ Add More",
+        // Panel 1
+        profile_title: "0.5) Config: Job Profile (Optional)",
+        profile_tab_library: "Library",
+        profile_tab_custom: "Custom JSON",
+        profile_pm_name: "Product Manager",
+        profile_pm_desc: "Value alignment, scope control, user story acceptance",
+        profile_tl_name: "Tech Lead",
+        profile_tl_desc: "Architecture feasibility, tech debt, API specs",
+        profile_ae_name: "Algorithm Engineer",
+        profile_ae_desc: "Model evaluation, data quality, experiment design",
+        profile_da_name: "Data Analyst",
+        profile_da_desc: "Metrics definition, analysis framework, data governance",
+        profile_select_btn: "Select",
+        profile_custom_placeholder: 'e.g. {"name": "My Role", "focus": ["..."], "hats": ["value", "risk"]}',
+        profile_import_btn: "Import",
+        profile_json_error: "Invalid JSON format"
+      }
+    };
+
+    let currentLang = 'zh';
+    let currentGateDecision = 'WAITING';
+
+    // Chain of Thought Logs Mock Data
+    const cotLogs = {
+      Draft: `
+        <div class="cot-entry system"><span class="cot-time">00:00</span>[System] Initiating Draft phase with model: claude-3-5-sonnet</div>
+        <div class="cot-entry agent"><span class="cot-time">00:02</span>[Author] Analyzing input idea: "Add GUI workbench for IdeaRefinery"</div>
+        <div class="cot-entry tool"><span class="cot-time">00:05</span>[Tool: Read] Reading context/business/DOMAIN.md</div>
+        <div class="cot-entry agent"><span class="cot-time">00:12</span>[Author] Generating PRD structure based on schema...</div>
+        <div class="cot-entry system"><span class="cot-time">08:12</span>[System] Draft phase completed. Output saved to Artifact Store.</div>
+      `,
+      Review: `
+        <div class="cot-entry system"><span class="cot-time">08:13</span>[System] Initiating Review phase. Hats: Value, Risk, Execution</div>
+        <div class="cot-entry agent"><span class="cot-time">08:15</span>[Reviewer:Value] Checking alignment with core goals...</div>
+        <div class="cot-entry agent"><span class="cot-time">09:20</span>[Reviewer:Risk] Identifying missing fallback scenarios. Creating Major CR.</div>
+        <div class="cot-entry agent"><span class="cot-time">12:45</span>[Reviewer:Execution] Acceptance criteria lacks metrics. Creating Blocking CR.</div>
+        <div class="cot-entry system"><span class="cot-time">22:44</span>[System] Review phase completed. 3 CRs generated.</div>
+      `,
+      Edit: `
+        <div class="cot-entry system"><span class="cot-time">22:45</span>[System] Initiating Edit phase. 3 open CRs to process.</div>
+        <div class="cot-entry agent"><span class="cot-time">22:50</span>[Editor] Processing CR-2 (Risk fallback). Status -> ACCEPT.</div>
+        <div class="cot-entry tool"><span class="cot-time">23:15</span>[Tool: Edit] Updating PRD.md Risk section...</div>
+        <div class="cot-entry agent"><span class="cot-time">28:30</span>[Editor] Processing CR-3 (Glossary). Status -> ACCEPT.</div>
+        <div class="cot-entry system"><span class="cot-time">33:52</span>[System] Edit phase paused. 1 Blocking CR remains open.</div>
+      `,
+      Gate: `
+        <div class="cot-entry system"><span class="cot-time">--:--</span>[System] Gate evaluation pending...</div>
+        <div class="cot-entry tool"><span class="cot-time">--:--</span>[Evaluator] Checking rules: max_blocking=0, min_avg_score=8.0</div>
+        <div class="cot-entry system"><span class="cot-time">--:--</span>[System] Waiting for Edit phase to close remaining Blocking CRs.</div>
+      `
+    };
+
+    // --- Panel 0 & Panel 1 Logic ---
+    let files = [
+      { name: 'requirements.md', size: '12.3 KB', icon: '#️⃣' },
+      { name: 'design-spec.pdf', size: '234.1 KB', icon: '📄' },
+      { name: 'data-analysis/', size: '3 items', icon: '📁' }
+    ];
+    let selectedProfile = null;
+    let selectedProfileKey = null;
+
+    function renderFiles() {
+      const fileList = document.getElementById('fileList');
+      fileList.innerHTML = '';
+      files.forEach((f, index) => {
+        const row = document.createElement('div');
+        row.className = 'file-row';
+        row.innerHTML = `
+          <span class="file-icon">${f.icon}</span>
+          <span class="file-name">${f.name}</span>
+          <span class="file-size">${f.size}</span>
+          <span class="file-delete" onclick="removeFile(${index})">✕</span>
+        `;
+        fileList.appendChild(row);
+      });
+      // document.getElementById('btnStartRun').disabled = files.length === 0;
+    }
+
+    function removeFile(index) {
+      files.splice(index, 1);
+      renderFiles();
+    }
+
+    function formatBytes(bytes) {
+      if (!bytes) return '0 Bytes';
+      const k = 1024;
+      const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
+      const i = Math.floor(Math.log(bytes) / Math.log(k));
+      return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+    }
+
+    function handleFileSelect(event) {
+      const newFiles = Array.from(event.target.files).map(f => {
+        let icon = '🗒️';
+        if (f.name.endsWith('.pdf')) icon = '📄';
+        else if (f.name.endsWith('.md')) icon = '#️⃣';
+        else if (f.name.endsWith('.doc') || f.name.endsWith('.docx')) icon = '📝';
+        return { name: f.name, size: formatBytes(f.size), icon: icon };
+      });
+      files = files.concat(newFiles);
+      renderFiles();
+      event.target.value = '';
+    }
+
+    function updateStartBtn() {
+      const ideaInput = document.getElementById('ideaInput');
+      document.getElementById('btnStartRun').disabled = ideaInput.value.trim() === '';
+    }
+
+    const ideaInput = document.getElementById('ideaInput');
+    ideaInput.addEventListener('input', updateStartBtn);
+
+    const dropZone = document.getElementById('dropZone');
+    const fileInput = document.getElementById('fileInput');
+    
+    dropZone.addEventListener('click', () => fileInput.click());
+    document.getElementById('btnAddMore').addEventListener('click', () => fileInput.click());
+    fileInput.addEventListener('change', handleFileSelect);
+    
+    dropZone.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      dropZone.classList.add('drag-over');
+    });
+    dropZone.addEventListener('dragleave', (e) => {
+      e.preventDefault();
+      dropZone.classList.remove('drag-over');
+    });
+    dropZone.addEventListener('drop', (e) => {
+      e.preventDefault();
+      dropZone.classList.remove('drag-over');
+      if (e.dataTransfer.files) {
+        const newFiles = Array.from(e.dataTransfer.files).map(f => {
+          let icon = '🗒️';
+          if (f.name.endsWith('.pdf')) icon = '📄';
+          else if (f.name.endsWith('.md')) icon = '#️⃣';
+          else if (f.name.endsWith('.doc') || f.name.endsWith('.docx')) icon = '📝';
+          return { name: f.name, size: formatBytes(f.size), icon: icon };
+        });
+        files = files.concat(newFiles);
+        renderFiles();
+      }
+    });
+
+    // Profile Tabs Logic
+    const tabs = document.querySelectorAll('.tab-btn');
+    const tabContents = {
+      library: document.getElementById('tabLibrary'),
+      custom: document.getElementById('tabCustom')
+    };
+
+    tabs.forEach(tab => {
+      tab.addEventListener('click', () => {
+        tabs.forEach(t => t.classList.remove('active'));
+        tab.classList.add('active');
+        Object.values(tabContents).forEach(content => content.style.display = 'none');
+        tabContents[tab.dataset.tab].style.display = 'block';
+      });
+    });
+
+    const profileBadge = document.getElementById('profileBadge');
+    const profileBadgeName = document.getElementById('profileBadgeName');
+    const profileCards = document.querySelectorAll('.profile-card');
+
+    function selectProfileKey(key, cardElement) {
+      selectedProfileKey = key;
+      if (key) {
+        profileBadgeName.textContent = `[${i18n[currentLang][key]}]`;
+        profileBadge.style.display = 'inline-flex';
+      } else {
+        profileBadgeName.textContent = `[${selectedProfile}]`;
+        profileBadge.style.display = 'inline-flex';
+      }
+      
+      profileCards.forEach(c => c.classList.remove('selected'));
+      if (cardElement) {
+        cardElement.classList.add('selected');
+      }
+    }
+
+    function clearProfile() {
+      selectedProfile = null;
+      selectedProfileKey = null;
+      profileBadge.style.display = 'none';
+      profileCards.forEach(c => c.classList.remove('selected'));
+    }
+
+    document.querySelectorAll('.select-profile').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        const profile = e.target.dataset.profile;
+        const card = e.target.closest('.profile-card');
+        selectedProfileKey = `profile_${profile}_name`;
+        selectedProfile = null;
+        selectProfileKey(selectedProfileKey, card);
+      });
+    });
+
+    document.getElementById('btnImportJson').addEventListener('click', () => {
+      const jsonStr = document.getElementById('customProfileJson').value;
+      const errorEl = document.getElementById('jsonError');
+      try {
+        const parsed = JSON.parse(jsonStr);
+        if (!parsed.name) throw new Error("Missing name");
+        errorEl.style.display = 'none';
+        selectedProfile = parsed.name;
+        selectedProfileKey = null;
+        selectProfileKey(null, null); // clear card selection
+        profileBadgeName.textContent = `[${parsed.name}]`;
+      } catch (e) {
+        errorEl.style.display = 'inline';
+      }
+    });
+
+    // --- Core i18n & Logic ---
+    function updateLanguage() {
+      document.querySelectorAll('[data-i18n]').forEach(el => {
+        const key = el.getAttribute('data-i18n');
+        if (i18n[currentLang][key]) {
+          if (el.tagName === 'TEXTAREA') {
+            el.placeholder = i18n[currentLang][key];
+          } else {
+            el.textContent = i18n[currentLang][key];
+          }
+        }
+      });
+      
+      // Update dynamic elements
+      updateProgress();
+      
+      if (selectedProfileKey) {
+        profileBadgeName.textContent = `[${i18n[currentLang][selectedProfileKey]}]`;
+      }
+
+      // Update Gate Pill based on current decision
+      const gatePill = document.getElementById('gatePill');
+      if (currentGateDecision === 'WAITING') gatePill.textContent = i18n[currentLang].gate_waiting;
+      else if (currentGateDecision === 'PASS') gatePill.textContent = i18n[currentLang].gate_pass;
+      else if (currentGateDecision === 'FAIL') gatePill.textContent = i18n[currentLang].gate_fail;
+      else if (currentGateDecision === 'STOP') gatePill.textContent = i18n[currentLang].gate_stop;
+      
+      // Update active stage note
+      const activeStage = document.querySelector('.stage-btn.active').dataset.stage;
+      document.getElementById('stageNote').textContent = i18n[currentLang][`note_${activeStage.toLowerCase()}`];
+    }
+
+    document.getElementById('langToggle').addEventListener('click', () => {
+      currentLang = currentLang === 'zh' ? 'en' : 'zh';
+      updateLanguage();
+    });
+
+    const stageButtons = document.querySelectorAll('.stage-btn');
+    const stageDetail = document.getElementById('stageDetail');
+    const gatePill = document.getElementById('gatePill');
+    const gateReason = document.getElementById('gateReason');
+
+    stageButtons.forEach((btn) => {
+      btn.addEventListener('click', () => {
+        stageButtons.forEach((item) => item.classList.remove('active'));
+        btn.classList.add('active');
+        const stage = btn.dataset.stage;
+        const noteKey = `note_${stage.toLowerCase()}`;
+        
+        stageDetail.innerHTML = `
+          <strong>${stage}</strong>
+          <p class="muted" id="stageNote" data-i18n="${noteKey}">${i18n[currentLang][noteKey]}</p>
+          <div class="cot-log" id="cotLog">${cotLogs[stage]}</div>
+        `;
+      });
+    });
+
+    document.querySelectorAll('.gate-actions button').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        currentGateDecision = btn.dataset.decision;
+        
+        if (currentGateDecision === 'PASS') {
+          gatePill.textContent = i18n[currentLang].gate_pass;
+          gatePill.style.background = 'rgba(14, 122, 56, 0.18)';
+          gateReason.textContent = i18n[currentLang].gate_reason_pass;
+          gateReason.setAttribute('data-i18n', 'gate_reason_pass');
+        } else if (currentGateDecision === 'FAIL') {
+          gatePill.textContent = i18n[currentLang].gate_fail;
+          gatePill.style.background = 'rgba(181, 106, 34, 0.18)';
+          gateReason.textContent = i18n[currentLang].gate_reason_fail;
+          gateReason.setAttribute('data-i18n', 'gate_reason_fail');
+        } else {
+          gatePill.textContent = i18n[currentLang].gate_stop;
+          gatePill.style.background = 'rgba(110, 91, 67, 0.2)';
+          gateReason.textContent = i18n[currentLang].gate_reason_stop;
+          gateReason.setAttribute('data-i18n', 'gate_reason_stop');
+        }
+      });
+    });
+
+    const checks = Array.from(document.querySelectorAll('.cr-check'));
+    const progressBar = document.getElementById('progressBar');
+    const progressText = document.getElementById('progressText');
+
+    function updateProgress() {
+      const total = checks.length;
+      const closed = checks.filter((box) => box.checked).length;
+      progressText.textContent = `${i18n[currentLang].cr_closed_text}: ${closed} / ${total}`;
+      progressBar.style.width = `${(closed / total) * 100}%`;
+    }
+
+    checks.forEach((box) => box.addEventListener('change', updateProgress));
+    updateProgress();
+
+    const chips = Array.from(document.querySelectorAll('.chip'));
+    const crItems = Array.from(document.querySelectorAll('.cr-item'));
+    chips.forEach((chip) => {
+      chip.addEventListener('click', () => {
+        chips.forEach((c) => c.classList.remove('active'));
+        chip.classList.add('active');
+        const filter = chip.dataset.filter;
+        crItems.forEach((item) => {
+          item.style.display = filter === 'all' || item.dataset.sev === filter ? 'grid' : 'none';
+        });
+      });
+    });
+    
+    // Initial renders
+    renderFiles();
+    updateLanguage();
+  </script>
+</body>
+</html>

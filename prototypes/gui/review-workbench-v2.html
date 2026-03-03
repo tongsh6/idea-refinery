@@ -1,0 +1,573 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>IdeaRefinery GUI MVP - Review Workbench v2</title>
+  <style>
+    :root {
+      --bg: #f4f1ea;
+      --panel: #fffdf8;
+      --ink: #1d2b36;
+      --muted: #65727d;
+      --line: #d8d1c4;
+      --accent: #006c67;
+      --accent-soft: #d7f0ec;
+      --warn: #b56a22;
+      --danger: #a23d3d;
+      --pass: #0e7a38;
+      --shadow: 0 10px 30px rgba(29, 43, 54, 0.08);
+      --radius: 14px;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: "Avenir Next", "PingFang SC", "Hiragino Sans GB", sans-serif;
+      color: var(--ink);
+      background: radial-gradient(circle at 15% 20%, #fff 0%, var(--bg) 45%, #ece6d8 100%);
+    }
+
+    .shell {
+      max-width: 1180px;
+      margin: 28px auto;
+      padding: 0 16px 32px;
+      display: grid;
+      gap: 14px;
+    }
+
+    .topbar {
+      background: linear-gradient(135deg, #12394b 0%, #1b5964 55%, #2f7d72 100%);
+      color: #f6f9f8;
+      border-radius: var(--radius);
+      padding: 18px 20px;
+      box-shadow: var(--shadow);
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .topbar h1 { margin: 0; font-size: 24px; font-weight: 600; }
+    .topbar p { margin: 5px 0 0; color: #d7e8e6; }
+
+    .topbar-actions {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .lang-switch {
+      background: rgba(255, 255, 255, 0.15);
+      border: 1px solid rgba(255, 255, 255, 0.3);
+      color: #fff;
+      border-radius: 6px;
+      padding: 4px 8px;
+      font-size: 12px;
+      cursor: pointer;
+      backdrop-filter: blur(4px);
+    }
+
+    .gate-pill {
+      border: 1px solid rgba(255, 255, 255, 0.36);
+      border-radius: 999px;
+      padding: 8px 14px;
+      font-size: 13px;
+      font-weight: 600;
+      backdrop-filter: blur(4px);
+      white-space: nowrap;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: 1.15fr 1fr;
+      gap: 14px;
+    }
+
+    .card {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      padding: 16px;
+      box-shadow: var(--shadow);
+      display: flex;
+      flex-direction: column;
+    }
+
+    .card h2 {
+      margin: 0 0 12px;
+      font-size: 16px;
+      letter-spacing: 0.2px;
+    }
+
+    .muted { color: var(--muted); }
+
+    /* Timeline & Chain of Thought */
+    .timeline {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 8px;
+    }
+
+    .stage-btn {
+      border: 1px solid var(--line);
+      background: #fff;
+      border-radius: 10px;
+      padding: 10px;
+      text-align: left;
+      cursor: pointer;
+      transition: 0.2s ease;
+    }
+
+    .stage-btn:hover { transform: translateY(-1px); border-color: #9ea9ae; }
+    .stage-btn.active {
+      border-color: var(--accent);
+      background: var(--accent-soft);
+      box-shadow: inset 0 0 0 1px rgba(0, 108, 103, 0.15);
+    }
+
+    .stage-name { font-size: 13px; font-weight: 700; margin-bottom: 6px; }
+    .stage-meta { font-size: 12px; color: var(--muted); }
+
+    .detail {
+      margin-top: 12px;
+      padding: 12px;
+      border-radius: 10px;
+      border: 1px dashed #b9c4c7;
+      background: #fafcfb;
+      flex-grow: 1;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .cot-log {
+      margin-top: 12px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-size: 12px;
+      color: #4a5568;
+      background: #f1f5f9;
+      border-radius: 6px;
+      padding: 10px;
+      overflow-y: auto;
+      max-height: 150px;
+      border: 1px solid #e2e8f0;
+    }
+
+    .cot-entry {
+      margin-bottom: 6px;
+      padding-left: 12px;
+      border-left: 2px solid #cbd5e1;
+    }
+    .cot-entry.system { border-left-color: #94a3b8; color: #64748b; }
+    .cot-entry.agent { border-left-color: #0ea5e9; }
+    .cot-entry.tool { border-left-color: #10b981; }
+    .cot-time { color: #94a3b8; font-size: 10px; margin-right: 6px; }
+
+    /* CR Workspace */
+    .chips { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 10px; }
+    .chip {
+      border: 1px solid var(--line);
+      background: #fff;
+      border-radius: 999px;
+      padding: 5px 10px;
+      font-size: 12px;
+      cursor: pointer;
+    }
+    .chip.active { border-color: var(--accent); color: var(--accent); background: #f0fbf8; }
+
+    .cr-list { display: grid; gap: 8px; }
+    .cr-item {
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 10px;
+      display: grid;
+      grid-template-columns: auto 1fr auto;
+      gap: 10px;
+      align-items: start;
+    }
+
+    .sev { font-size: 11px; padding: 3px 7px; border-radius: 999px; border: 1px solid; }
+    .sev.blocking { color: var(--danger); border-color: #d5a2a2; background: #f9ecec; }
+    .sev.major { color: var(--warn); border-color: #d9b894; background: #fbf4ea; }
+    .sev.minor { color: #1e5f8f; border-color: #9ebfdb; background: #ecf3fa; }
+
+    .progress {
+      margin-top: 10px;
+      height: 8px;
+      border-radius: 999px;
+      background: #e8e5dc;
+      overflow: hidden;
+    }
+    .progress > span {
+      display: block;
+      width: 0;
+      height: 100%;
+      background: linear-gradient(90deg, #0a7a4e 0%, #43a56e 100%);
+      transition: width 0.25s ease;
+    }
+
+    /* Gate Actions */
+    .gate-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+    .gate-actions button {
+      border: 1px solid var(--line);
+      border-radius: 9px;
+      padding: 8px 10px;
+      background: #fff;
+      cursor: pointer;
+      font-weight: 600;
+    }
+
+    .gate-actions button[data-decision="PASS"] { border-color: #8bc59b; color: #16693b; }
+    .gate-actions button[data-decision="FAIL"] { border-color: #d1a179; color: #8a4b1c; }
+    .gate-actions button[data-decision="STOP"] { border-color: #c6b5a0; color: #6e5b43; }
+
+    .artifact a {
+      display: inline-block;
+      margin-right: 10px;
+      color: #0c5670;
+      text-decoration: none;
+      border-bottom: 1px dashed #0c5670;
+    }
+
+    @media (max-width: 900px) {
+      .grid { grid-template-columns: 1fr; }
+      .timeline { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .topbar { flex-direction: column; align-items: flex-start; }
+    }
+  </style>
+</head>
+<body>
+  <main class="shell">
+    <section class="topbar">
+      <div>
+        <h1 data-i18n="title">IdeaRefinery Review Workbench</h1>
+        <p data-i18n="subtitle">Run #R-2026-02-28 · 从 idea 到 Gate 的可视化审阅面板（MVP 草案 v2）</p>
+      </div>
+      <div class="topbar-actions">
+        <button id="langToggle" class="lang-switch">EN / 中文</button>
+        <div id="gatePill" class="gate-pill" data-i18n="gate_waiting">Gate: WAITING</div>
+      </div>
+    </section>
+
+    <section class="grid">
+      <article class="card">
+        <h2 data-i18n="timeline_title">1) Pipeline Timeline & Execution Trace</h2>
+        <div class="timeline" id="timeline">
+          <button class="stage-btn active" data-stage="Draft" data-time="08m 12s">
+            <div class="stage-name">Draft</div>
+            <div class="stage-meta"><span data-i18n="status_done">done</span> · 08m 12s</div>
+          </button>
+          <button class="stage-btn" data-stage="Review" data-time="14m 31s">
+            <div class="stage-name">Review</div>
+            <div class="stage-meta"><span data-i18n="status_done">done</span> · 14m 31s</div>
+          </button>
+          <button class="stage-btn" data-stage="Edit" data-time="11m 07s">
+            <div class="stage-name">Edit</div>
+            <div class="stage-meta"><span data-i18n="status_in_progress">in progress</span> · 11m 07s</div>
+          </button>
+          <button class="stage-btn" data-stage="Gate" data-time="--">
+            <div class="stage-name">Gate</div>
+            <div class="stage-meta"><span data-i18n="status_waiting">waiting</span> · --</div>
+          </button>
+        </div>
+        <div class="detail" id="stageDetail">
+          <strong>Draft</strong>
+          <p class="muted" id="stageNote" data-i18n="note_draft">作者产出 PRD v0.1，目标与范围已冻结。</p>
+          <div class="cot-log" id="cotLog">
+            <div class="cot-entry system"><span class="cot-time">00:00</span>[System] Initiating Draft phase with model: claude-3-5-sonnet</div>
+            <div class="cot-entry agent"><span class="cot-time">00:02</span>[Author] Analyzing input idea: "Add GUI workbench for IdeaRefinery"</div>
+            <div class="cot-entry tool"><span class="cot-time">00:05</span>[Tool: Read] Reading context/business/DOMAIN.md</div>
+            <div class="cot-entry agent"><span class="cot-time">00:12</span>[Author] Generating PRD structure based on schema...</div>
+            <div class="cot-entry system"><span class="cot-time">08:12</span>[System] Draft phase completed. Output saved to Artifact Store.</div>
+          </div>
+        </div>
+      </article>
+
+      <article class="card">
+        <h2 data-i18n="gate_title">2) Gate Decision Preview</h2>
+        <div id="gateReason" class="muted" data-i18n="gate_reason_waiting">当前 Blocking CR = 1，尚不满足 PASS 条件（Blocking=0 且 avgScore≥8）。</div>
+        <div class="gate-actions">
+          <button data-decision="PASS" data-i18n="btn_sim_pass">Simulate PASS</button>
+          <button data-decision="FAIL" data-i18n="btn_sim_fail">Simulate FAIL</button>
+          <button data-decision="STOP" data-i18n="btn_sim_stop">Simulate STOP</button>
+        </div>
+      </article>
+    </section>
+
+    <section class="grid">
+      <article class="card">
+        <h2 data-i18n="cr_title">3) CR Workspace</h2>
+        <div class="chips" id="chips">
+          <button class="chip active" data-filter="all" data-i18n="filter_all">All</button>
+          <button class="chip" data-filter="blocking">Blocking</button>
+          <button class="chip" data-filter="major">Major</button>
+          <button class="chip" data-filter="minor">Minor</button>
+        </div>
+
+        <div class="cr-list" id="crList">
+          <label class="cr-item" data-sev="blocking">
+            <input type="checkbox" class="cr-check" />
+            <div>
+              <div><span class="sev blocking">Blocking</span> <span data-i18n="cr_1_title">验收标准缺少量化指标</span></div>
+              <div class="muted" data-i18n="cr_1_desc">acceptance: 必须补充可验证指标（阈值/计算口径）</div>
+            </div>
+            <span class="muted" data-i18n="status_open">open</span>
+          </label>
+
+          <label class="cr-item" data-sev="major">
+            <input type="checkbox" class="cr-check" checked />
+            <div>
+              <div><span class="sev major">Major</span> <span data-i18n="cr_2_title">风险章节缺少 fallback 场景</span></div>
+              <div class="muted" data-i18n="cr_2_desc">已处理：补充 provider 限流/超时回退路径</div>
+            </div>
+            <span class="muted" data-i18n="status_closed">closed</span>
+          </label>
+
+          <label class="cr-item" data-sev="minor">
+            <input type="checkbox" class="cr-check" checked />
+            <div>
+              <div><span class="sev minor">Minor</span> <span data-i18n="cr_3_title">术语表未给出中英文映射</span></div>
+              <div class="muted" data-i18n="cr_3_desc">已处理：新增 glossary 表格</div>
+            </div>
+            <span class="muted" data-i18n="status_closed">closed</span>
+          </label>
+        </div>
+
+        <div class="muted" id="progressText">CR Closed: 2 / 3</div>
+        <div class="progress"><span id="progressBar"></span></div>
+      </article>
+
+      <article class="card">
+        <h2 data-i18n="artifact_title">4) Artifact Preview Entry</h2>
+        <p class="muted" data-i18n="artifact_desc">点击可跳到对应导出文档。MVP 阶段先用本地文件链接模拟。</p>
+        <div class="artifact">
+          <a href="../../out/PRD.md" target="_blank" rel="noreferrer" data-i18n="link_prd">Open PRD.md</a>
+          <a href="../../out/TECH_SPEC.md" target="_blank" rel="noreferrer" data-i18n="link_tech">Open TECH_SPEC.md</a>
+          <a href="../../out/EXEC_PLAN.md" target="_blank" rel="noreferrer" data-i18n="link_plan">Open EXEC_PLAN.md</a>
+        </div>
+      </article>
+    </section>
+  </main>
+
+  <script>
+    // i18n Dictionary
+    const i18n = {
+      zh: {
+        title: "IdeaRefinery Review Workbench",
+        subtitle: "Run #R-2026-02-28 · 从 idea 到 Gate 的可视化审阅面板（MVP 草案 v2）",
+        gate_waiting: "Gate: 等待中",
+        gate_pass: "Gate: 通过",
+        gate_fail: "Gate: 驳回",
+        gate_stop: "Gate: 终止",
+        timeline_title: "1) 阶段时间线与执行轨迹",
+        status_done: "已完成",
+        status_in_progress: "进行中",
+        status_waiting: "等待中",
+        status_open: "待处理",
+        status_closed: "已关闭",
+        note_draft: "作者产出 PRD v0.1，目标与范围已冻结。",
+        note_review: "Reviewer 多帽子审查，产出结构化 CR（含 acceptance）。",
+        note_edit: "Editor 逐条处理 CR，当前仍有 1 条 Blocking 未关闭。",
+        note_gate: "Gate 等待 Blocking 清零与平均分达到阈值后再判定。",
+        gate_title: "2) Gate 决策预览",
+        gate_reason_waiting: "当前 Blocking CR = 1，尚不满足 PASS 条件（Blocking=0 且 avgScore≥8）。",
+        gate_reason_pass: "PASS: avgScore>=8 且 Blocking=0，允许进入下一阶段。",
+        gate_reason_fail: "FAIL: 仍存在 Blocking 或关键章节缺失，需继续 Edit。",
+        gate_reason_stop: "STOP: 达到预算/轮次/超时边界，流程硬停。",
+        btn_sim_pass: "模拟 PASS",
+        btn_sim_fail: "模拟 FAIL",
+        btn_sim_stop: "模拟 STOP",
+        cr_title: "3) CR 工作区",
+        filter_all: "全部",
+        cr_1_title: "验收标准缺少量化指标",
+        cr_1_desc: "acceptance: 必须补充可验证指标（阈值/计算口径）",
+        cr_2_title: "风险章节缺少 fallback 场景",
+        cr_2_desc: "已处理：补充 provider 限流/超时回退路径",
+        cr_3_title: "术语表未给出中英文映射",
+        cr_3_desc: "已处理：新增 glossary 表格",
+        artifact_title: "4) 产物预览入口",
+        artifact_desc: "点击可跳到对应导出文档。MVP 阶段先用本地文件链接模拟。",
+        link_prd: "打开 PRD.md",
+        link_tech: "打开 TECH_SPEC.md",
+        link_plan: "打开 EXEC_PLAN.md",
+        cr_closed_text: "CR 已关闭"
+      },
+      en: {
+        title: "IdeaRefinery Review Workbench",
+        subtitle: "Run #R-2026-02-28 · Visual Review Panel from Idea to Gate (MVP Draft v2)",
+        gate_waiting: "Gate: WAITING",
+        gate_pass: "Gate: PASS",
+        gate_fail: "Gate: FAIL",
+        gate_stop: "Gate: STOP",
+        timeline_title: "1) Pipeline Timeline & Execution Trace",
+        status_done: "done",
+        status_in_progress: "in progress",
+        status_waiting: "waiting",
+        status_open: "open",
+        status_closed: "closed",
+        note_draft: "Author generated PRD v0.1, goals and scope frozen.",
+        note_review: "Reviewers performed multi-hat review, generated structured CRs.",
+        note_edit: "Editor processing CRs, 1 Blocking CR remains open.",
+        note_gate: "Gate waiting for 0 Blocking CRs and target avgScore.",
+        gate_title: "2) Gate Decision Preview",
+        gate_reason_waiting: "Current Blocking CR = 1, PASS conditions not met (Blocking=0 & avgScore≥8).",
+        gate_reason_pass: "PASS: avgScore>=8 & Blocking=0, proceeding to next phase.",
+        gate_reason_fail: "FAIL: Blocking CRs or missing sections exist, returning to Edit.",
+        gate_reason_stop: "STOP: Budget/Round/Timeout limits reached, hard stop.",
+        btn_sim_pass: "Simulate PASS",
+        btn_sim_fail: "Simulate FAIL",
+        btn_sim_stop: "Simulate STOP",
+        cr_title: "3) CR Workspace",
+        filter_all: "All",
+        cr_1_title: "Acceptance criteria lacks quantitative metrics",
+        cr_1_desc: "acceptance: Must add verifiable metrics (thresholds/calculation methods)",
+        cr_2_title: "Risk section missing fallback scenarios",
+        cr_2_desc: "Resolved: Added provider rate-limit/timeout fallback paths",
+        cr_3_title: "Glossary missing EN/ZH mapping",
+        cr_3_desc: "Resolved: Added glossary table",
+        artifact_title: "4) Artifact Preview Entry",
+        artifact_desc: "Click to open exported documents. MVP uses local file links.",
+        link_prd: "Open PRD.md",
+        link_tech: "Open TECH_SPEC.md",
+        link_plan: "Open EXEC_PLAN.md",
+        cr_closed_text: "CR Closed"
+      }
+    };
+
+    let currentLang = 'zh';
+    let currentGateDecision = 'WAITING';
+
+    // Chain of Thought Logs Mock Data
+    const cotLogs = {
+      Draft: `
+        <div class="cot-entry system"><span class="cot-time">00:00</span>[System] Initiating Draft phase with model: claude-3-5-sonnet</div>
+        <div class="cot-entry agent"><span class="cot-time">00:02</span>[Author] Analyzing input idea: "Add GUI workbench for IdeaRefinery"</div>
+        <div class="cot-entry tool"><span class="cot-time">00:05</span>[Tool: Read] Reading context/business/DOMAIN.md</div>
+        <div class="cot-entry agent"><span class="cot-time">00:12</span>[Author] Generating PRD structure based on schema...</div>
+        <div class="cot-entry system"><span class="cot-time">08:12</span>[System] Draft phase completed. Output saved to Artifact Store.</div>
+      `,
+      Review: `
+        <div class="cot-entry system"><span class="cot-time">08:13</span>[System] Initiating Review phase. Hats: Value, Risk, Execution</div>
+        <div class="cot-entry agent"><span class="cot-time">08:15</span>[Reviewer:Value] Checking alignment with core goals...</div>
+        <div class="cot-entry agent"><span class="cot-time">09:20</span>[Reviewer:Risk] Identifying missing fallback scenarios. Creating Major CR.</div>
+        <div class="cot-entry agent"><span class="cot-time">12:45</span>[Reviewer:Execution] Acceptance criteria lacks metrics. Creating Blocking CR.</div>
+        <div class="cot-entry system"><span class="cot-time">22:44</span>[System] Review phase completed. 3 CRs generated.</div>
+      `,
+      Edit: `
+        <div class="cot-entry system"><span class="cot-time">22:45</span>[System] Initiating Edit phase. 3 open CRs to process.</div>
+        <div class="cot-entry agent"><span class="cot-time">22:50</span>[Editor] Processing CR-2 (Risk fallback). Status -> ACCEPT.</div>
+        <div class="cot-entry tool"><span class="cot-time">23:15</span>[Tool: Edit] Updating PRD.md Risk section...</div>
+        <div class="cot-entry agent"><span class="cot-time">28:30</span>[Editor] Processing CR-3 (Glossary). Status -> ACCEPT.</div>
+        <div class="cot-entry system"><span class="cot-time">33:52</span>[System] Edit phase paused. 1 Blocking CR remains open.</div>
+      `,
+      Gate: `
+        <div class="cot-entry system"><span class="cot-time">--:--</span>[System] Gate evaluation pending...</div>
+        <div class="cot-entry tool"><span class="cot-time">--:--</span>[Evaluator] Checking rules: max_blocking=0, min_avg_score=8.0</div>
+        <div class="cot-entry system"><span class="cot-time">--:--</span>[System] Waiting for Edit phase to close remaining Blocking CRs.</div>
+      `
+    };
+
+    function updateLanguage() {
+      document.querySelectorAll('[data-i18n]').forEach(el => {
+        const key = el.getAttribute('data-i18n');
+        if (i18n[currentLang][key]) {
+          el.textContent = i18n[currentLang][key];
+        }
+      });
+      
+      // Update dynamic elements
+      updateProgress();
+      
+      // Update Gate Pill based on current decision
+      const gatePill = document.getElementById('gatePill');
+      if (currentGateDecision === 'WAITING') gatePill.textContent = i18n[currentLang].gate_waiting;
+      else if (currentGateDecision === 'PASS') gatePill.textContent = i18n[currentLang].gate_pass;
+      else if (currentGateDecision === 'FAIL') gatePill.textContent = i18n[currentLang].gate_fail;
+      else if (currentGateDecision === 'STOP') gatePill.textContent = i18n[currentLang].gate_stop;
+      
+      // Update active stage note
+      const activeStage = document.querySelector('.stage-btn.active').dataset.stage;
+      document.getElementById('stageNote').textContent = i18n[currentLang][`note_${activeStage.toLowerCase()}`];
+    }
+
+    document.getElementById('langToggle').addEventListener('click', () => {
+      currentLang = currentLang === 'zh' ? 'en' : 'zh';
+      updateLanguage();
+    });
+
+    const stageButtons = document.querySelectorAll('.stage-btn');
+    const stageDetail = document.getElementById('stageDetail');
+    const gatePill = document.getElementById('gatePill');
+    const gateReason = document.getElementById('gateReason');
+
+    stageButtons.forEach((btn) => {
+      btn.addEventListener('click', () => {
+        stageButtons.forEach((item) => item.classList.remove('active'));
+        btn.classList.add('active');
+        const stage = btn.dataset.stage;
+        const noteKey = `note_${stage.toLowerCase()}`;
+        
+        stageDetail.innerHTML = `
+          <strong>${stage}</strong>
+          <p class="muted" id="stageNote" data-i18n="${noteKey}">${i18n[currentLang][noteKey]}</p>
+          <div class="cot-log" id="cotLog">${cotLogs[stage]}</div>
+        `;
+      });
+    });
+
+    document.querySelectorAll('.gate-actions button').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        currentGateDecision = btn.dataset.decision;
+        
+        if (currentGateDecision === 'PASS') {
+          gatePill.textContent = i18n[currentLang].gate_pass;
+          gatePill.style.background = 'rgba(14, 122, 56, 0.18)';
+          gateReason.textContent = i18n[currentLang].gate_reason_pass;
+          gateReason.setAttribute('data-i18n', 'gate_reason_pass');
+        } else if (currentGateDecision === 'FAIL') {
+          gatePill.textContent = i18n[currentLang].gate_fail;
+          gatePill.style.background = 'rgba(181, 106, 34, 0.18)';
+          gateReason.textContent = i18n[currentLang].gate_reason_fail;
+          gateReason.setAttribute('data-i18n', 'gate_reason_fail');
+        } else {
+          gatePill.textContent = i18n[currentLang].gate_stop;
+          gatePill.style.background = 'rgba(110, 91, 67, 0.2)';
+          gateReason.textContent = i18n[currentLang].gate_reason_stop;
+          gateReason.setAttribute('data-i18n', 'gate_reason_stop');
+        }
+      });
+    });
+
+    const checks = Array.from(document.querySelectorAll('.cr-check'));
+    const progressBar = document.getElementById('progressBar');
+    const progressText = document.getElementById('progressText');
+
+    function updateProgress() {
+      const total = checks.length;
+      const closed = checks.filter((box) => box.checked).length;
+      progressText.textContent = `${i18n[currentLang].cr_closed_text}: ${closed} / ${total}`;
+      progressBar.style.width = `${(closed / total) * 100}%`;
+    }
+
+    checks.forEach((box) => box.addEventListener('change', updateProgress));
+    updateProgress();
+
+    const chips = Array.from(document.querySelectorAll('.chip'));
+    const crItems = Array.from(document.querySelectorAll('.cr-item'));
+    chips.forEach((chip) => {
+      chip.addEventListener('click', () => {
+        chips.forEach((c) => c.classList.remove('active'));
+        chip.classList.add('active');
+        const filter = chip.dataset.filter;
+        crItems.forEach((item) => {
+          item.style.display = filter === 'all' || item.dataset.sev === filter ? 'grid' : 'none';
+        });
+      });
+    });
+    
+    // Initialize language
+    updateLanguage();
+  </script>
+</body>
+</html>

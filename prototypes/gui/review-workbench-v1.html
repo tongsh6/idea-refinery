@@ -1,0 +1,355 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>IdeaRefinery GUI MVP - Review Workbench</title>
+  <style>
+    :root {
+      --bg: #f4f1ea;
+      --panel: #fffdf8;
+      --ink: #1d2b36;
+      --muted: #65727d;
+      --line: #d8d1c4;
+      --accent: #006c67;
+      --accent-soft: #d7f0ec;
+      --warn: #b56a22;
+      --danger: #a23d3d;
+      --pass: #0e7a38;
+      --shadow: 0 10px 30px rgba(29, 43, 54, 0.08);
+      --radius: 14px;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: "Avenir Next", "PingFang SC", "Hiragino Sans GB", sans-serif;
+      color: var(--ink);
+      background: radial-gradient(circle at 15% 20%, #fff 0%, var(--bg) 45%, #ece6d8 100%);
+    }
+
+    .shell {
+      max-width: 1180px;
+      margin: 28px auto;
+      padding: 0 16px 32px;
+      display: grid;
+      gap: 14px;
+    }
+
+    .topbar {
+      background: linear-gradient(135deg, #12394b 0%, #1b5964 55%, #2f7d72 100%);
+      color: #f6f9f8;
+      border-radius: var(--radius);
+      padding: 18px 20px;
+      box-shadow: var(--shadow);
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .topbar h1 { margin: 0; font-size: 24px; font-weight: 600; }
+    .topbar p { margin: 5px 0 0; color: #d7e8e6; }
+
+    .gate-pill {
+      border: 1px solid rgba(255, 255, 255, 0.36);
+      border-radius: 999px;
+      padding: 8px 14px;
+      font-size: 13px;
+      font-weight: 600;
+      backdrop-filter: blur(4px);
+      white-space: nowrap;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: 1.15fr 1fr;
+      gap: 14px;
+    }
+
+    .card {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      padding: 16px;
+      box-shadow: var(--shadow);
+    }
+
+    .card h2 {
+      margin: 0 0 12px;
+      font-size: 16px;
+      letter-spacing: 0.2px;
+    }
+
+    .muted { color: var(--muted); }
+
+    .timeline {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 8px;
+    }
+
+    .stage-btn {
+      border: 1px solid var(--line);
+      background: #fff;
+      border-radius: 10px;
+      padding: 10px;
+      text-align: left;
+      cursor: pointer;
+      transition: 0.2s ease;
+    }
+
+    .stage-btn:hover { transform: translateY(-1px); border-color: #9ea9ae; }
+    .stage-btn.active {
+      border-color: var(--accent);
+      background: var(--accent-soft);
+      box-shadow: inset 0 0 0 1px rgba(0, 108, 103, 0.15);
+    }
+
+    .stage-name { font-size: 13px; font-weight: 700; margin-bottom: 6px; }
+    .stage-meta { font-size: 12px; color: var(--muted); }
+
+    .detail {
+      margin-top: 12px;
+      padding: 12px;
+      border-radius: 10px;
+      border: 1px dashed #b9c4c7;
+      background: #fafcfb;
+      min-height: 90px;
+    }
+
+    .chips { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 10px; }
+    .chip {
+      border: 1px solid var(--line);
+      background: #fff;
+      border-radius: 999px;
+      padding: 5px 10px;
+      font-size: 12px;
+      cursor: pointer;
+    }
+    .chip.active { border-color: var(--accent); color: var(--accent); background: #f0fbf8; }
+
+    .cr-list { display: grid; gap: 8px; }
+    .cr-item {
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 10px;
+      display: grid;
+      grid-template-columns: auto 1fr auto;
+      gap: 10px;
+      align-items: start;
+    }
+
+    .sev { font-size: 11px; padding: 3px 7px; border-radius: 999px; border: 1px solid; }
+    .sev.blocking { color: var(--danger); border-color: #d5a2a2; background: #f9ecec; }
+    .sev.major { color: var(--warn); border-color: #d9b894; background: #fbf4ea; }
+    .sev.minor { color: #1e5f8f; border-color: #9ebfdb; background: #ecf3fa; }
+
+    .progress {
+      margin-top: 10px;
+      height: 8px;
+      border-radius: 999px;
+      background: #e8e5dc;
+      overflow: hidden;
+    }
+    .progress > span {
+      display: block;
+      width: 0;
+      height: 100%;
+      background: linear-gradient(90deg, #0a7a4e 0%, #43a56e 100%);
+      transition: width 0.25s ease;
+    }
+
+    .gate-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+    .gate-actions button {
+      border: 1px solid var(--line);
+      border-radius: 9px;
+      padding: 8px 10px;
+      background: #fff;
+      cursor: pointer;
+      font-weight: 600;
+    }
+
+    .gate-actions button[data-decision="PASS"] { border-color: #8bc59b; color: #16693b; }
+    .gate-actions button[data-decision="FAIL"] { border-color: #d1a179; color: #8a4b1c; }
+    .gate-actions button[data-decision="STOP"] { border-color: #c6b5a0; color: #6e5b43; }
+
+    .artifact a {
+      display: inline-block;
+      margin-right: 10px;
+      color: #0c5670;
+      text-decoration: none;
+      border-bottom: 1px dashed #0c5670;
+    }
+
+    @media (max-width: 900px) {
+      .grid { grid-template-columns: 1fr; }
+      .timeline { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .topbar { flex-direction: column; align-items: flex-start; }
+    }
+  </style>
+</head>
+<body>
+  <main class="shell">
+    <section class="topbar">
+      <div>
+        <h1>IdeaRefinery Review Workbench</h1>
+        <p>Run #R-2026-02-28 · 从 idea 到 Gate 的可视化审阅面板（MVP 草案）</p>
+      </div>
+      <div id="gatePill" class="gate-pill">Gate: WAITING</div>
+    </section>
+
+    <section class="grid">
+      <article class="card">
+        <h2>1) Pipeline Timeline</h2>
+        <div class="timeline" id="timeline">
+          <button class="stage-btn active" data-stage="Draft" data-note="作者产出 PRD v0.1，目标与范围已冻结。" data-time="08m 12s">
+            <div class="stage-name">Draft</div>
+            <div class="stage-meta">done · 08m 12s</div>
+          </button>
+          <button class="stage-btn" data-stage="Review" data-note="Reviewer 多帽子审查，产出结构化 CR（含 acceptance）。" data-time="14m 31s">
+            <div class="stage-name">Review</div>
+            <div class="stage-meta">done · 14m 31s</div>
+          </button>
+          <button class="stage-btn" data-stage="Edit" data-note="Editor 逐条处理 CR，当前仍有 1 条 Blocking 未关闭。" data-time="11m 07s">
+            <div class="stage-name">Edit</div>
+            <div class="stage-meta">in progress · 11m 07s</div>
+          </button>
+          <button class="stage-btn" data-stage="Gate" data-note="Gate 等待 Blocking 清零与平均分达到阈值后再判定。" data-time="--">
+            <div class="stage-name">Gate</div>
+            <div class="stage-meta">waiting · --</div>
+          </button>
+        </div>
+        <div class="detail" id="stageDetail">
+          <strong>Draft</strong>
+          <p class="muted">作者产出 PRD v0.1，目标与范围已冻结。</p>
+        </div>
+      </article>
+
+      <article class="card">
+        <h2>2) Gate Decision Preview</h2>
+        <div id="gateReason" class="muted">当前 Blocking CR = 1，尚不满足 PASS 条件（Blocking=0 且 avgScore≥8）。</div>
+        <div class="gate-actions">
+          <button data-decision="PASS">Simulate PASS</button>
+          <button data-decision="FAIL">Simulate FAIL</button>
+          <button data-decision="STOP">Simulate STOP</button>
+        </div>
+      </article>
+    </section>
+
+    <section class="grid">
+      <article class="card">
+        <h2>3) CR Workspace</h2>
+        <div class="chips" id="chips">
+          <button class="chip active" data-filter="all">All</button>
+          <button class="chip" data-filter="blocking">Blocking</button>
+          <button class="chip" data-filter="major">Major</button>
+          <button class="chip" data-filter="minor">Minor</button>
+        </div>
+
+        <div class="cr-list" id="crList">
+          <label class="cr-item" data-sev="blocking">
+            <input type="checkbox" class="cr-check" />
+            <div>
+              <div><span class="sev blocking">Blocking</span> 验收标准缺少量化指标</div>
+              <div class="muted">acceptance: 必须补充可验证指标（阈值/计算口径）</div>
+            </div>
+            <span class="muted">open</span>
+          </label>
+
+          <label class="cr-item" data-sev="major">
+            <input type="checkbox" class="cr-check" checked />
+            <div>
+              <div><span class="sev major">Major</span> 风险章节缺少 fallback 场景</div>
+              <div class="muted">已处理：补充 provider 限流/超时回退路径</div>
+            </div>
+            <span class="muted">closed</span>
+          </label>
+
+          <label class="cr-item" data-sev="minor">
+            <input type="checkbox" class="cr-check" checked />
+            <div>
+              <div><span class="sev minor">Minor</span> 术语表未给出中英文映射</div>
+              <div class="muted">已处理：新增 glossary 表格</div>
+            </div>
+            <span class="muted">closed</span>
+          </label>
+        </div>
+
+        <div class="muted" id="progressText">CR Closed: 2 / 3</div>
+        <div class="progress"><span id="progressBar"></span></div>
+      </article>
+
+      <article class="card">
+        <h2>4) Artifact Preview Entry</h2>
+        <p class="muted">点击可跳到对应导出文档。MVP 阶段先用本地文件链接模拟。</p>
+        <div class="artifact">
+          <a href="../../out/PRD.md" target="_blank" rel="noreferrer">Open PRD.md</a>
+          <a href="../../out/TECH_SPEC.md" target="_blank" rel="noreferrer">Open TECH_SPEC.md</a>
+          <a href="../../out/EXEC_PLAN.md" target="_blank" rel="noreferrer">Open EXEC_PLAN.md</a>
+        </div>
+      </article>
+    </section>
+  </main>
+
+  <script>
+    const stageButtons = document.querySelectorAll('.stage-btn');
+    const stageDetail = document.getElementById('stageDetail');
+    const gatePill = document.getElementById('gatePill');
+    const gateReason = document.getElementById('gateReason');
+
+    stageButtons.forEach((btn) => {
+      btn.addEventListener('click', () => {
+        stageButtons.forEach((item) => item.classList.remove('active'));
+        btn.classList.add('active');
+        stageDetail.innerHTML = `<strong>${btn.dataset.stage}</strong><p class="muted">${btn.dataset.note}（elapsed: ${btn.dataset.time}）</p>`;
+      });
+    });
+
+    document.querySelectorAll('.gate-actions button').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const decision = btn.dataset.decision;
+        gatePill.textContent = `Gate: ${decision}`;
+        if (decision === 'PASS') {
+          gatePill.style.background = 'rgba(14, 122, 56, 0.18)';
+          gateReason.textContent = 'PASS: avgScore>=8 且 Blocking=0，允许进入下一阶段。';
+        } else if (decision === 'FAIL') {
+          gatePill.style.background = 'rgba(181, 106, 34, 0.18)';
+          gateReason.textContent = 'FAIL: 仍存在 Blocking 或关键章节缺失，需继续 Edit。';
+        } else {
+          gatePill.style.background = 'rgba(110, 91, 67, 0.2)';
+          gateReason.textContent = 'STOP: 达到预算/轮次/超时边界，流程硬停。';
+        }
+      });
+    });
+
+    const checks = Array.from(document.querySelectorAll('.cr-check'));
+    const progressBar = document.getElementById('progressBar');
+    const progressText = document.getElementById('progressText');
+
+    function updateProgress() {
+      const total = checks.length;
+      const closed = checks.filter((box) => box.checked).length;
+      progressText.textContent = `CR Closed: ${closed} / ${total}`;
+      progressBar.style.width = `${(closed / total) * 100}%`;
+    }
+
+    checks.forEach((box) => box.addEventListener('change', updateProgress));
+    updateProgress();
+
+    const chips = Array.from(document.querySelectorAll('.chip'));
+    const crItems = Array.from(document.querySelectorAll('.cr-item'));
+    chips.forEach((chip) => {
+      chip.addEventListener('click', () => {
+        chips.forEach((c) => c.classList.remove('active'));
+        chip.classList.add('active');
+        const filter = chip.dataset.filter;
+        crItems.forEach((item) => {
+          item.style.display = filter === 'all' || item.dataset.sev === filter ? 'grid' : 'none';
+        });
+      });
+    });
+  </script>
+</body>
+</html>
