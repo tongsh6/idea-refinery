@@ -17,10 +17,15 @@ pytest
 ```
 
 ## Git 工作流
-- 项目统一采用 `main -> feature` 开发，`多个 feature -> 一个 release -> main` 发布。
-- 发布完成后删除已合并的 `feature/*` 与 `release/*` 分支。
+- 项目统一采用 `main -> feature -> develop -> release -> main` 发布流程。
+- `feature/*` 合并到 `develop` 后删除；`release/*` 分支发布后保留。
 - 详细规范见：`context/tech/GITFLOW.md`
 - 发布前最少执行：`pytest` 和 `python -m build`
+
+## AIEF Sidecar（Single-Directory Mode）
+- 已支持通过 `--base-dir AIEF` 生成 sidecar 资产目录：`AIEF/`
+- AIEF 相关文档统一保留在 `AIEF/` 目录
+- AIEF 导航入口：`AIEF/context/INDEX.md`
 
 ## 运行
 ```bash
