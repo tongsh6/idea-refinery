@@ -39,6 +39,7 @@ runs/
 out/
 out-real*/
 outputs/
+.sisyphus/
 
 # OS
 .DS_Store
