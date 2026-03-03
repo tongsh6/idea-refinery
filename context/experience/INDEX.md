@@ -13,6 +13,22 @@
 
 ## 经验列表（按时间倒序）
 
+### 外部工具集成：spec-kit + superpowers 的开发过程集成策略
+
+- **类别**：设计决策
+- **日期**：2026-03-02
+- **关键词**：`spec-kit`, `superpowers`, `OpenSpec`, `tool-integration`, `SDD`, `AIEF`
+- **摘要**：外部 SDD/Skill 工具应以"开发过程集成"模式接入；选择 spec-kit（主力）+ superpowers（技能层），跳过 OpenSpec（功能重叠+栈不匹配）。
+- **文档**：`lessons/2026-03-02-tool-integration.md`
+
+### AIEF L1→L3 升级：渐进式接入策略
+
+- **类别**：设计决策
+- **日期**：2026-03-02
+- **关键词**：`AIEF`, `L3`, `migration`, `localization`, `cross-reference`, `experience-management`
+- **摘要**：大型框架接入应分级推进（L2 骨架 → L3 血肉），建立本地化映射表后批量创建，最后统一验证交叉引用。
+- **文档**：`lessons/2026-03-02-aief-l3-upgrade.md`
+
 ### 多供应商路由与 fallback 的最小可用落地
 
 - **类别**：设计决策
@@ -51,8 +67,10 @@
 
 | 经验 | 关键词 | 摘要 |
 |------|--------|------|
+| 外部工具集成策略 | `spec-kit`, `superpowers`, `tool-integration`, `SDD` | 开发过程集成 + 工具选型评估 + 跳过决策记录 |
 | 多供应商路由与 fallback 最小落地 | `multi-provider`, `role-routing`, `fallback` | 统一配置入口并明确路由/回退契约 |
 | AIEF 最小入口初始化 | `AIEF`, `AGENTS`, `context` | 统一项目级 AI 协作入口，减少上下文漂移 |
+| AIEF L1→L3 升级策略 | `AIEF`, `L3`, `migration`, `localization` | 分级推进 + 本地化映射 + 交叉引用验证 |
 
 ---
 

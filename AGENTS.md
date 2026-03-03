@@ -31,6 +31,14 @@
 | context/business/ | Business knowledge | Understanding requirements, domain models |
 | context/tech/ | Technical docs | Architecture, API, conventions |
 | context/experience/ | Experience library | Avoid repeating mistakes |
-| workflow/ | Workflows | Complex task phase guides (optional) |
-| docs/standards/ | Standards | Skill/Command/Agent specs (L1, optional) |
-| docs/standards/patterns/ | Patterns | Phase routing, experience mgmt, context loading (L2, optional) |
+| workflow/ | Workflows | Complex task phase guides |
+| docs/standards/ | Standards | Skill/Command/Agent specs (L2) |
+| docs/standards/patterns/ | Patterns | Phase routing, experience mgmt, context loading (L3) |
+
+开发工具：
+
+| Directory / File | Purpose | When to Load |
+|------------------|---------|-------------|
+| .specify/ | spec-kit 配置与模板 | 使用 spec-kit 流程开发新功能 |
+| .opencode/command/ | spec-kit slash 命令 | AI 编码助手执行 /speckit.* 命令 |
+| context/tech/TOOL_INTEGRATION.md | 工具集成指南 | 了解 spec-kit/superpowers 用法 |
