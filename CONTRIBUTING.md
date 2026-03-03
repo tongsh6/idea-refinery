@@ -35,9 +35,10 @@ python3 -m build
 
 ```
 main（稳定）
- ├── feature/xxx    # 从 main 拉出，开发完成后合并到 release
+ ├── feature/xxx    # 从 main 拉出，开发完成后合并到 develop
  ├── feature/yyy
- └── release/vX.Y.Z # 多个 feature 组成，验证通过后合并到 main 并打标签
+ ├── develop        # 集成分支，承接多个 feature
+ └── release/vX.Y.Z # 从 develop 拉出，验证通过后合并到 main 并打标签
 ```
 
 **快速上手：**
@@ -47,7 +48,7 @@ main（稳定）
 git checkout main && git pull
 git checkout -b feature/<your-topic>
 
-# 2. 开发完成后推送并发起 PR（目标：对应 release/* 分支）
+# 2. 开发完成后推送并发起 PR（目标：develop 分支）
 git push -u origin feature/<your-topic>
 ```
 
@@ -55,7 +56,7 @@ git push -u origin feature/<your-topic>
 
 ## PR 规范
 
-### feature -> release PR
+### feature -> develop PR
 - 标题格式：`feat: <简要描述>` / `fix: <简要描述>` / `docs: <简要描述>`
 - 描述需包含：
   - **变更目的**：解决什么问题
@@ -69,7 +70,7 @@ git push -u origin feature/<your-topic>
 - [ ] `python3 -m build` 成功产出 sdist/wheel
 - [ ] `pyproject.toml` 版本号已更新
 - [ ] `GITFLOW.md` 发布流程已遵循
-- [ ] 已在 release 分支打标签 `vX.Y.Z` 并推送
+- [ ] release 分支验证通过后，计划在 main 打标签 `vX.Y.Z`
 - [ ] GitHub Release 草稿已准备好
 
 ---
@@ -98,19 +99,19 @@ docs: update quick-start example in README
 
 ## 发布流程（维护者）
 
-1. 确认所有目标 feature 已合并到 `release/vX.Y.Z`
-2. 在 `release/vX.Y.Z` 执行完整验证（pytest + build）
-3. 打标签并推送：
+1. 确认所有目标 feature 已合并到 `develop`
+2. 从 `develop` 创建 `release/vX.Y.Z`
+3. 在 `release/vX.Y.Z` 执行完整验证（pytest + build）
+4. 将 `release/vX.Y.Z` 合并到 `main`
+5. 打标签并推送：
    ```bash
    git tag vX.Y.Z
    git push origin vX.Y.Z
    ```
-4. 将 `release/vX.Y.Z` 合并到 `main`
-5. 创建 GitHub Release
-6. 删除已合并的 `feature/*` 与 `release/*` 分支：
+6. 创建 GitHub Release
+7. 删除已合并的 `feature/*` 分支，保留 `release/*` 分支：
    ```bash
    git branch -d feature/xxx && git push origin --delete feature/xxx
-   git branch -d release/vX.Y.Z && git push origin --delete release/vX.Y.Z
    ```
 
 ---
