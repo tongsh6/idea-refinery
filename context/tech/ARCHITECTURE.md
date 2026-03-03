@@ -14,6 +14,7 @@
 - Store：SQLite（OSS），负责 Run/Round/Artifact/CR/Decision 持久化。
 - Gate/Evaluator：规则门禁与评分门禁。
 - Exporter：Markdown/PDF（OSS 默认 Markdown）。
+- GUI Workbench（新增，MVP）：面向 run/round 的可视化审阅层，消费 Store 与导出产物。
 
 ## 关键流程（文字数据流）
 Idea → (Optional) Diverge → Select
@@ -49,7 +50,7 @@ Idea → (Optional) Diverge → Select
 - Review(id, round_id, hat, verdict, scores_json, blocking_count)
 - CR(id, artifact_id, round_id, severity, dimension, change, acceptance, status)
 - Decision(id, round_id, decision, reason, stop_reason)
-
+- **注意**：关于多文件输入与岗位画像的扩展设计，请参考 `context/tech/MULTI_FILE_ARCHITECTURE.md`。
 ## 模型与 Provider 约定
 - OpenAI-compatible：使用 chat completions 协议，支持 messages/usage/choices 等基础字段。
 - Ollama：本地推理，成本默认为 0。
@@ -76,6 +77,12 @@ Idea → (Optional) Diverge → Select
 ## 产物与导出
 - 产物先结构化 JSON（schema 驱动）。
 - 导出层负责将 JSON 渲染为 Markdown/PDF（OSS 默认 Markdown）。
+
+## GUI 工作台边界（MVP）
+- GUI 仅作为可视化与交互入口，不改变 Draft/Review/Edit/Gate 的核心编排语义。
+- GUI 读取 Run/Round/CR/Decision 与 Artifact 导出结果，展示状态与证据链。
+- GUI 的 CR 处理动作必须落库并可回放，不允许“仅前端态”处理。
+- Gate 决策展示与 CLI 保持同一规则源（`GateConfig` + evaluator 结果）。
 
 ## 非目标（v0.x）
 - 不实现全功能 RAG 平台；仅保留检索接口与引用插槽。

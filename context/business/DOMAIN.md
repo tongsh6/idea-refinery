@@ -14,6 +14,7 @@
 - 支持多轮 CR 闭环：Reviewer 产出可验收 CR，Editor 合并修订，Gate 判定 Stop/Continue。
 - 成本可控：预算/轮次/超时；上下文治理通过摘要、diff、章节裁剪。
 - 全链路可回放：每轮提示词、输出、CR 状态、评分、停机原因、成本指标。
+- 提供 GUI 工作台 MVP：面向 run/round 的可视化审阅、CR 处理与 Gate 决策确认。
 
 ## 供应商接入需求（新增）
 - 接入目标：支持 Gemini、Claude、GLM、MiniMax、Kimi 等主流供应商。
@@ -28,10 +29,29 @@
 - AC3：同一 run 支持至少 2 个供应商并存，且可按 role 配置优先级与 fallback 顺序。
 - AC4：联调报告可输出按 provider/model 聚合的调用次数、token、延迟与成本。
 
-### 当前能力基线（2026-02-27）
+### 当前能力基线（2026-03-04）
 - 已支持多 OpenAI-compatible 供应商并存注册（CLI 与环境变量两种配置入口）。
 - 已支持角色优先路由（role->provider）和候选顺序 fallback。
 - 已支持真实联调后按 provider/model 聚合输出 tokens/latency 指标。
+- 已完成 GUI 工作台 v3 页面与交互原型（用于产品评审，不代表最终实现）。
+- v3 已明确 Panel 0 输入优先级：idea 文本为必填主输入，文件上传为可选补充材料。
+
+## GUI 需求（新增）
+- 目标：降低 CLI 使用门槛，让团队可视化查看 run 生命周期与质量门禁。
+- 关键场景：
+  - 在 Panel 0 先录入 idea 文本（必填），并可按需上传多文件/目录作为补充材料。
+  - 在一个页面中查看 Draft/Review/Edit/Gate 当前阶段、状态和耗时。
+  - 对结构化 CR 进行筛选、指派、处理状态更新（ACCEPT/REJECT/DEFER）。
+  - 对 Gate 判定依据（avg_score、blocking_count、budget、timeout）进行可解释展示。
+  - 快速预览三件套导出结果，并追溯到对应 round 的证据链。
+
+### 验收标准（GUI MVP）
+- AC-GUI-0：Panel 0 必须支持 idea 文本主输入；文件上传仅作为可选补充，不得阻塞启动流程。
+- AC-GUI-1：可展示一个 run 的阶段流（Draft→Review→Edit→Gate）及每阶段状态。
+- AC-GUI-2：可查看并筛选 CR（按 severity/status/dimension），并完成处理动作记录。
+- AC-GUI-3：可展示 Gate 决策卡片，明确 PASS/FAIL/STOP 的触发条件与原因。
+- AC-GUI-4：可从页面跳转查看 PRD/TECH_SPEC/EXEC_PLAN 的导出预览。
+- AC-GUI-5：页面支持桌面与移动端基本可用（核心信息不丢失，可完成关键交互）。
 
 ## 非目标（v0.x）
 - 不要求“所有模型一致通过”作为默认停机条件。
@@ -64,4 +84,5 @@
 - M1：PRD 单文档闭环（Loop+CR+Gate+回放+导出）
 - M2：三件套流水线（PRD→TECH→PLAN）
 - M3：Provider 插件体系与路由策略
-- M4：商业版 UI + 协作 + 模板/评测 + 审计
+- M4：GUI 工作台 MVP（run 看板、CR 工作区、Gate 决策面板、导出预览；Panel 0 idea 主输入+可选补充材料上传）
+- M5：商业版 UI + 协作 + 模板/评测 + 审计
