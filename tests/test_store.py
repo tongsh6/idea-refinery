@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from idea_refinery.models import Artifact, CR, Decision, Review, ReviewScores, Round, Run
+from idea_refinery.models import Artifact, CR, Decision, Review, ReviewScores, Round, Run, RunEvent
 from idea_refinery.store import SqliteStore
 
 
@@ -80,6 +80,16 @@ def test_store_read_apis_roundtrip(tmp_path: Path) -> None:
     )
     store.insert_decision(decision)
 
+    event = RunEvent(
+        run_id=run.id,
+        step="gate",
+        event_type="gate_decision",
+        round_number=1,
+        detail="pass",
+        payload={"decision": "PASS", "avg_score": 8.5},
+    )
+    store.insert_run_event(event)
+
     got_run = store.get_run(run.id)
     assert got_run is not None
     assert got_run.id == run.id
@@ -116,5 +126,10 @@ def test_store_read_apis_roundtrip(tmp_path: Path) -> None:
     decisions = store.list_decisions(run.id)
     assert len(decisions) == 1
     assert decisions[0].decision == "PASS"
+
+    events = store.list_run_events(run.id)
+    assert len(events) == 1
+    assert events[0].event_type == "gate_decision"
+    assert events[0].payload["decision"] == "PASS"
 
     store.close()

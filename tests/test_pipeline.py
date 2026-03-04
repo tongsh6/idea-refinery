@@ -36,8 +36,11 @@ def test_run_full_pipeline_dry_run_outputs_three_artifacts(tmp_path: Path) -> No
     decisions = cur.fetchone()[0]
     _ = cur.execute("SELECT COUNT(*) FROM runs")
     runs = cur.fetchone()[0]
+    _ = cur.execute("SELECT COUNT(*) FROM run_events")
+    run_events = cur.fetchone()[0]
     conn.close()
 
     assert artifacts == 3
     assert decisions == 3
     assert runs == 3
+    assert run_events > 0
