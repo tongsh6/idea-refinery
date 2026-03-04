@@ -212,7 +212,16 @@ def run(
 @main.command("observe")
 @click.option("--run-id", required=False, help="Run ID to inspect")
 @click.option("--latest", is_flag=True, default=False, help="Inspect latest run")
-def observe(run_id: str | None, latest: bool) -> None:
+@click.option("--step", required=False, help="Filter by step (e.g. draft/review/edit/gate/run)")
+@click.option("--event-type", required=False, help="Filter by event type")
+@click.option("--limit", required=False, type=click.IntRange(min=1), help="Show last N matched events")
+def observe(
+    run_id: str | None,
+    latest: bool,
+    step: str | None,
+    event_type: str | None,
+    limit: int | None,
+) -> None:
     if latest and run_id:
         raise click.ClickException("Use either --run-id or --latest, not both")
     if not latest and not run_id:
@@ -229,6 +238,13 @@ def observe(run_id: str | None, latest: bool) -> None:
     selected_run_id = run.id
 
     events = store.list_run_events(selected_run_id)
+    if step:
+        events = [event for event in events if event.step == step]
+    if event_type:
+        events = [event for event in events if event.event_type == event_type]
+    if limit is not None:
+        events = events[-limit:]
+
     if not events:
         store.close()
         click.echo(f"No events for run {selected_run_id}")
