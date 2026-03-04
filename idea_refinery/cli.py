@@ -92,6 +92,22 @@ def _parse_role_provider_pairs(items: tuple[str, ...]) -> dict[str, str]:
     return out
 
 
+def _render_timeline_table(rows: list[tuple[str, str, str, str, str, str]]) -> str:
+    headers = ("Time", "Round", "Step", "Event", "Detail", "Payload")
+    widths = [len(h) for h in headers]
+    for row in rows:
+        for idx, cell in enumerate(row):
+            widths[idx] = max(widths[idx], len(cell))
+
+    def render_row(values: tuple[str, str, str, str, str, str]) -> str:
+        return " | ".join(val.ljust(widths[idx]) for idx, val in enumerate(values))
+
+    separator = "-+-".join("-" * w for w in widths)
+    lines = [render_row(headers), separator]
+    lines.extend(render_row(row) for row in rows)
+    return "\n".join(lines)
+
+
 @main.command()
 @click.option("--idea", required=True, help="Idea text to refine")
 @click.option("--out", "output_dir", default="./out", show_default=True)
@@ -191,6 +207,50 @@ def run(
     click.echo(f"PRD written to {outputs['PRD']}")
     click.echo(f"TECH_SPEC written to {outputs['TECH_SPEC']}")
     click.echo(f"EXEC_PLAN written to {outputs['EXEC_PLAN']}")
+
+
+@main.command("observe")
+@click.option("--run-id", required=False, help="Run ID to inspect")
+@click.option("--latest", is_flag=True, default=False, help="Inspect latest run")
+def observe(run_id: str | None, latest: bool) -> None:
+    if latest and run_id:
+        raise click.ClickException("Use either --run-id or --latest, not both")
+    if not latest and not run_id:
+        raise click.ClickException("Provide --run-id or use --latest")
+
+    db_path = os.getenv("DB_PATH", "./refinery.db")
+    store = SqliteStore(db_path)
+
+    run = store.get_latest_run() if latest else store.get_run(str(run_id))
+    if run is None:
+        store.close()
+        raise click.ClickException("Run not found")
+
+    selected_run_id = run.id
+
+    events = store.list_run_events(selected_run_id)
+    if not events:
+        store.close()
+        click.echo(f"No events for run {selected_run_id}")
+        return
+
+    table_rows: list[tuple[str, str, str, str, str, str]] = []
+    for event in events:
+        payload = json.dumps(event.payload, ensure_ascii=False, separators=(",", ":"))
+        table_rows.append(
+            (
+                event.created_at.isoformat(timespec="seconds"),
+                str(event.round_number),
+                event.step,
+                event.event_type,
+                event.detail,
+                payload,
+            )
+        )
+
+    click.echo(f"Run timeline: {selected_run_id}")
+    click.echo(_render_timeline_table(table_rows))
+    store.close()
 
 
 if __name__ == "__main__":

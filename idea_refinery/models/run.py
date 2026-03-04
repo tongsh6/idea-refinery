@@ -82,3 +82,14 @@ class Decision(BaseModel):
     blocking_count: int = 0
     reason: str = ""
     created_at: datetime = Field(default_factory=_now)
+
+
+class RunEvent(BaseModel):
+    id: str = Field(default_factory=_uid)
+    run_id: str
+    step: str
+    event_type: str
+    round_number: int = 0
+    detail: str = ""
+    payload: dict[str, Any] = Field(default_factory=dict)
+    created_at: datetime = Field(default_factory=_now)
