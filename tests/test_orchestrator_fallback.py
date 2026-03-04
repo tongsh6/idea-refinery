@@ -136,12 +136,19 @@ def test_orchestrator_fallback_to_second_provider(tmp_path: Path) -> None:
     artifacts = cur.fetchone()[0]
     cur.execute("SELECT COUNT(*) FROM decisions")
     decisions = cur.fetchone()[0]
+    cur.execute("SELECT event_type FROM run_events")
+    event_type_rows = cur.fetchall()
     conn.close()
 
     assert rounds == 3
     assert artifacts == 1
     assert decisions == 1
     assert len(metadata_rows) == 3
+
+    event_types = {row[0] for row in event_type_rows}
+    assert "run_started" in event_types
+    assert "gate_decision" in event_types
+    assert "run_completed" in event_types
 
     for row in metadata_rows:
         metadata = json.loads(row[0])

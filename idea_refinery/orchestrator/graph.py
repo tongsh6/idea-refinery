@@ -13,7 +13,7 @@ from langgraph.graph import END, START, StateGraph
 from ..config import RunConfig
 from ..exporter import artifact_to_markdown, default_filename, write_markdown
 from ..gate import evaluate_gate
-from ..models import Artifact, ArtifactType, CR, Decision, Review, Round, Run
+from ..models import Artifact, ArtifactType, CR, Decision, Review, Round, Run, RunEvent
 from ..models.run import StopReason
 from ..models.cr import CRSeverity, ReviewScores
 from ..prompts import build_author_prompt, build_editor_prompt, build_reviewer_prompt
@@ -381,63 +381,216 @@ def run_refinery(
         "changelog": "",
     }
 
-    def draft_node(state: RefineryState) -> RefineryState:
-        if config.dry_run:
-            artifact = _mock_artifact(artifact_type, state["idea"])
-            state["artifact_json"] = json.dumps(artifact, ensure_ascii=False)
-            return state
+    stage_started_at: dict[str, float] = {}
 
-        messages = build_author_prompt(state["idea"], artifact_type)
-        req = CompletionRequest(messages=messages, model="")
-        result, retry_meta = _complete_with_fallback(registry, "author", req)
-        state["total_cost_usd"] += result.cost_usd
-
-        rnd = Round(
-            run_id=run.id,
-            step="draft",
-            role="author",
-            provider_name=result.provider,
-            model=result.model,
-            input_tokens=result.input_tokens,
-            output_tokens=result.output_tokens,
-            cost_usd=result.cost_usd,
-            latency_ms=result.latency_ms,
-            raw_output=result.content,
-            metadata=retry_meta,
-        )
-        store.insert_round(rnd)
-
-        prd_obj = _as_dict(parse_json(result.content))
-        state["artifact_json"] = json.dumps(prd_obj, ensure_ascii=False)
-        return state
-
-    def review_node(state: RefineryState) -> RefineryState:
-        state["round_number"] += 1
-        all_crs: list[CR] = []
-        score_list: list[float] = []
-
-        if config.dry_run:
-            state["avg_score"] = 9.0
-            state["blocking_count"] = 0
-            state["crs_json"] = json.dumps([], ensure_ascii=False)
-            return state
-
-        for hat in config.reviewer_hats:
-            messages = build_reviewer_prompt(
-                state["idea"],
-                state["artifact_json"],
-                artifact_type,
-                hat,
-                state["round_number"],
+    def emit_event(
+        step: str,
+        event_type: str,
+        *,
+        round_number: int = 0,
+        detail: str = "",
+        payload: dict[str, object] | None = None,
+    ) -> None:
+        store.insert_run_event(
+            RunEvent(
+                run_id=run.id,
+                step=step,
+                event_type=event_type,
+                round_number=round_number,
+                detail=detail,
+                payload=payload or {},
             )
+        )
+
+    def start_stage(step: str, round_number: int) -> None:
+        stage_started_at[step] = time.monotonic()
+        emit_event(step, "stage_started", round_number=round_number)
+
+    def finish_stage(
+        step: str,
+        round_number: int,
+        payload: dict[str, object] | None = None,
+    ) -> None:
+        started = stage_started_at.pop(step, None)
+        duration_ms = 0
+        if started is not None:
+            duration_ms = int((time.monotonic() - started) * 1000)
+        event_payload: dict[str, object] = {"duration_ms": duration_ms}
+        if payload:
+            event_payload.update(payload)
+        emit_event(step, "stage_completed", round_number=round_number, payload=event_payload)
+
+    def fail_stage(step: str, round_number: int, exc: Exception) -> None:
+        emit_event(
+            step,
+            "stage_failed",
+            round_number=round_number,
+            detail=str(exc),
+            payload={"error_type": type(exc).__name__},
+        )
+
+    emit_event(
+        "run",
+        "run_started",
+        payload={
+            "artifact_type": artifact_type,
+            "dry_run": config.dry_run,
+            "gate_max_rounds": config.gate.max_rounds,
+            "gate_budget_usd": config.gate.budget_usd,
+        },
+    )
+
+    def draft_node(state: RefineryState) -> RefineryState:
+        round_number = state["round_number"]
+        start_stage("draft", round_number)
+        try:
+            if config.dry_run:
+                artifact = _mock_artifact(artifact_type, state["idea"])
+                state["artifact_json"] = json.dumps(artifact, ensure_ascii=False)
+                finish_stage("draft", round_number, payload={"dry_run": True})
+                return state
+
+            messages = build_author_prompt(state["idea"], artifact_type)
             req = CompletionRequest(messages=messages, model="")
-            result, retry_meta = _complete_with_fallback(registry, f"reviewer:{hat}", req)
+            result, retry_meta = _complete_with_fallback(registry, "author", req)
             state["total_cost_usd"] += result.cost_usd
 
             rnd = Round(
                 run_id=run.id,
-                step="review",
-                role=f"reviewer:{hat}",
+                step="draft",
+                role="author",
+                provider_name=result.provider,
+                model=result.model,
+                input_tokens=result.input_tokens,
+                output_tokens=result.output_tokens,
+                cost_usd=result.cost_usd,
+                latency_ms=result.latency_ms,
+                raw_output=result.content,
+                metadata=retry_meta,
+            )
+            store.insert_round(rnd)
+
+            prd_obj = _as_dict(parse_json(result.content))
+            state["artifact_json"] = json.dumps(prd_obj, ensure_ascii=False)
+            finish_stage(
+                "draft",
+                round_number,
+                payload={
+                    "dry_run": False,
+                    "provider": result.provider,
+                    "cost_usd": result.cost_usd,
+                    "latency_ms": result.latency_ms,
+                },
+            )
+            return state
+        except Exception as exc:  # noqa: BLE001
+            fail_stage("draft", round_number, exc)
+            raise
+
+    def review_node(state: RefineryState) -> RefineryState:
+        state["round_number"] += 1
+        round_number = state["round_number"]
+        start_stage("review", round_number)
+        all_crs: list[CR] = []
+        score_list: list[float] = []
+        try:
+            if config.dry_run:
+                state["avg_score"] = 9.0
+                state["blocking_count"] = 0
+                state["crs_json"] = json.dumps([], ensure_ascii=False)
+                finish_stage(
+                    "review",
+                    round_number,
+                    payload={"dry_run": True, "reviewer_count": len(config.reviewer_hats)},
+                )
+                return state
+
+            for hat in config.reviewer_hats:
+                messages = build_reviewer_prompt(
+                    state["idea"],
+                    state["artifact_json"],
+                    artifact_type,
+                    hat,
+                    state["round_number"],
+                )
+                req = CompletionRequest(messages=messages, model="")
+                result, retry_meta = _complete_with_fallback(registry, f"reviewer:{hat}", req)
+                state["total_cost_usd"] += result.cost_usd
+
+                rnd = Round(
+                    run_id=run.id,
+                    step="review",
+                    role=f"reviewer:{hat}",
+                    provider_name=result.provider,
+                    model=result.model,
+                    input_tokens=result.input_tokens,
+                    output_tokens=result.output_tokens,
+                    cost_usd=result.cost_usd,
+                    latency_ms=result.latency_ms,
+                    raw_output=result.content,
+                    metadata=retry_meta,
+                )
+                store.insert_round(rnd)
+
+                raw = _as_dict(parse_json(result.content))
+                review = _normalize_review(raw)
+                review.round_id = rnd.id
+                store.insert_review(review)
+
+                for cr in review.crs:
+                    cr.round_id = rnd.id
+                    store.insert_cr(cr)
+
+                score_list.append(review.scores.average)
+                all_crs.extend(review.crs)
+
+            avg_score = sum(score_list) / len(score_list) if score_list else 0.0
+            blocking = len([c for c in all_crs if c.severity == "blocking"])
+            state["avg_score"] = avg_score
+            state["blocking_count"] = blocking
+            state["crs_json"] = json.dumps(
+                _assign_cr_ids(all_crs, f"R{state['round_number']}"), ensure_ascii=False
+            )
+            finish_stage(
+                "review",
+                round_number,
+                payload={
+                    "dry_run": False,
+                    "reviewer_count": len(config.reviewer_hats),
+                    "avg_score": avg_score,
+                    "blocking_count": blocking,
+                    "cr_count": len(all_crs),
+                },
+            )
+            return state
+        except Exception as exc:  # noqa: BLE001
+            fail_stage("review", round_number, exc)
+            raise
+
+    def edit_node(state: RefineryState) -> RefineryState:
+        round_number = state["round_number"]
+        start_stage("edit", round_number)
+        try:
+            if config.dry_run:
+                state["changelog"] = "dry-run: no changes"
+                finish_stage("edit", round_number, payload={"dry_run": True})
+                return state
+
+            messages = build_editor_prompt(
+                state["idea"],
+                state["artifact_json"],
+                state["crs_json"],
+                artifact_type,
+                state["round_number"],
+            )
+            req = CompletionRequest(messages=messages, model="")
+            result, retry_meta = _complete_with_fallback(registry, "editor", req)
+            state["total_cost_usd"] += result.cost_usd
+
+            rnd = Round(
+                run_id=run.id,
+                step="edit",
+                role="editor",
                 provider_name=result.provider,
                 model=result.model,
                 input_tokens=result.input_tokens,
@@ -450,86 +603,75 @@ def run_refinery(
             store.insert_round(rnd)
 
             raw = _as_dict(parse_json(result.content))
-            review = _normalize_review(raw)
-            review.round_id = rnd.id
-            store.insert_review(review)
-
-            for cr in review.crs:
-                cr.round_id = rnd.id
-                store.insert_cr(cr)
-
-            score_list.append(review.scores.average)
-            all_crs.extend(review.crs)
-
-        avg_score = sum(score_list) / len(score_list) if score_list else 0.0
-        blocking = len([c for c in all_crs if c.severity == "blocking"])
-        state["avg_score"] = avg_score
-        state["blocking_count"] = blocking
-        state["crs_json"] = json.dumps(
-            _assign_cr_ids(all_crs, f"R{state['round_number']}"), ensure_ascii=False
-        )
-        return state
-
-    def edit_node(state: RefineryState) -> RefineryState:
-        if config.dry_run:
-            state["changelog"] = "dry-run: no changes"
+            updated = raw.get("updated_artifact")
+            if updated is None:
+                updated = raw.get("updated_prd")
+            if updated is None:
+                updated = {}
+            updated_prd = _as_dict(updated) if updated else {}
+            state["artifact_json"] = json.dumps(updated_prd, ensure_ascii=False)
+            state["changelog"] = str(raw.get("changelog", ""))
+            finish_stage(
+                "edit",
+                round_number,
+                payload={
+                    "dry_run": False,
+                    "provider": result.provider,
+                    "cost_usd": result.cost_usd,
+                    "latency_ms": result.latency_ms,
+                },
+            )
             return state
-
-        messages = build_editor_prompt(
-            state["idea"],
-            state["artifact_json"],
-            state["crs_json"],
-            artifact_type,
-            state["round_number"],
-        )
-        req = CompletionRequest(messages=messages, model="")
-        result, retry_meta = _complete_with_fallback(registry, "editor", req)
-        state["total_cost_usd"] += result.cost_usd
-
-        rnd = Round(
-            run_id=run.id,
-            step="edit",
-            role="editor",
-            provider_name=result.provider,
-            model=result.model,
-            input_tokens=result.input_tokens,
-            output_tokens=result.output_tokens,
-            cost_usd=result.cost_usd,
-            latency_ms=result.latency_ms,
-            raw_output=result.content,
-            metadata=retry_meta,
-        )
-        store.insert_round(rnd)
-
-        raw = _as_dict(parse_json(result.content))
-        updated = raw.get("updated_artifact")
-        if updated is None:
-            updated = raw.get("updated_prd")
-        if updated is None:
-            updated = {}
-        updated_prd = _as_dict(updated) if updated else {}
-        state["artifact_json"] = json.dumps(updated_prd, ensure_ascii=False)
-        state["changelog"] = str(raw.get("changelog", ""))
-        return state
+        except Exception as exc:  # noqa: BLE001
+            fail_stage("edit", round_number, exc)
+            raise
 
     def gate_node(state: RefineryState) -> RefineryState:
-        elapsed = time.monotonic() - state["run_start"]
-        timed_out = elapsed >= config.gate.timeout_seconds
-        decision = evaluate_gate(
-            avg_score=state["avg_score"],
-            blocking_count=state["blocking_count"],
-            round_number=state["round_number"],
-            max_rounds=config.gate.max_rounds,
-            min_avg_score=config.gate.min_avg_score,
-            max_blocking=config.gate.max_blocking,
-            budget_usd=config.gate.budget_usd,
-            total_cost_usd=state["total_cost_usd"],
-            timed_out=timed_out,
-        )
-        state["decision"] = decision.decision
-        state["stop_reason"] = decision.stop_reason
-        state["gate_reason"] = decision.reason
-        return state
+        round_number = state["round_number"]
+        start_stage("gate", round_number)
+        try:
+            elapsed = time.monotonic() - state["run_start"]
+            timed_out = elapsed >= config.gate.timeout_seconds
+            decision = evaluate_gate(
+                avg_score=state["avg_score"],
+                blocking_count=state["blocking_count"],
+                round_number=state["round_number"],
+                max_rounds=config.gate.max_rounds,
+                min_avg_score=config.gate.min_avg_score,
+                max_blocking=config.gate.max_blocking,
+                budget_usd=config.gate.budget_usd,
+                total_cost_usd=state["total_cost_usd"],
+                timed_out=timed_out,
+            )
+            state["decision"] = decision.decision
+            state["stop_reason"] = decision.stop_reason
+            state["gate_reason"] = decision.reason
+            emit_event(
+                "gate",
+                "gate_decision",
+                round_number=round_number,
+                detail=decision.reason,
+                payload={
+                    "decision": decision.decision,
+                    "stop_reason": decision.stop_reason,
+                    "avg_score": state["avg_score"],
+                    "blocking_count": state["blocking_count"],
+                    "total_cost_usd": state["total_cost_usd"],
+                    "elapsed_ms": int(elapsed * 1000),
+                },
+            )
+            finish_stage(
+                "gate",
+                round_number,
+                payload={
+                    "decision": decision.decision,
+                    "stop_reason": decision.stop_reason,
+                },
+            )
+            return state
+        except Exception as exc:  # noqa: BLE001
+            fail_stage("gate", round_number, exc)
+            raise
 
     def route_after_gate(state: RefineryState) -> Literal["review", "end"]:
         return "end" if state["decision"] in {"PASS", "STOP"} else "review"
@@ -551,11 +693,20 @@ def run_refinery(
     try:
         final_state = cast(RefineryState, invokable_graph.invoke(state))
         prd_obj = _as_dict(parse_json(final_state.get("artifact_json", "{}")))
-    except JSONParseError as exc:
+    except Exception as exc:  # noqa: BLE001
         run.status = "failed"
-        run.error = exc.message
+        if isinstance(exc, JSONParseError):
+            run.error = exc.message
+        else:
+            run.error = str(exc)
         run.updated_at = datetime.now(timezone.utc)
         store.update_run(run)
+        emit_event(
+            "run",
+            "run_failed",
+            detail=run.error or "",
+            payload={"error_type": type(exc).__name__},
+        )
         raise
 
     coverage, _missing = _coverage_for_artifact(artifact_type, prd_obj)
@@ -601,6 +752,20 @@ def run_refinery(
     run.stop_reason = stop_reason_value
     run.updated_at = datetime.now(timezone.utc)
     store.update_run(run)
+
+    emit_event(
+        "run",
+        "run_completed",
+        round_number=run.total_rounds,
+        payload={
+            "artifact_type": artifact_type,
+            "decision": decision_value,
+            "stop_reason": stop_reason_value,
+            "total_rounds": run.total_rounds,
+            "total_cost_usd": run.cost_usd,
+            "output_path": output_path,
+        },
+    )
 
     return output_path
 

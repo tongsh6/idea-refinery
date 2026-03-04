@@ -156,6 +156,10 @@ def test_run_full_pipeline_non_dry_run_with_stub_provider(tmp_path: Path) -> Non
     artifacts = cur.fetchone()[0]
     cur.execute("SELECT COUNT(*) FROM decisions")
     decisions = cur.fetchone()[0]
+    cur.execute("SELECT COUNT(*) FROM run_events")
+    run_events = cur.fetchone()[0]
+    cur.execute("SELECT event_type FROM run_events")
+    event_type_rows = cur.fetchall()
     cur.execute("SELECT metadata_json FROM rounds")
     metadata_rows = cur.fetchall()
     conn.close()
@@ -164,7 +168,13 @@ def test_run_full_pipeline_non_dry_run_with_stub_provider(tmp_path: Path) -> Non
     assert rounds == 9
     assert artifacts == 3
     assert decisions == 3
+    assert run_events > 0
     assert len(metadata_rows) == 9
+
+    event_types = {row[0] for row in event_type_rows}
+    assert "run_started" in event_types
+    assert "gate_decision" in event_types
+    assert "run_completed" in event_types
 
     for row in metadata_rows:
         metadata = json.loads(row[0])
