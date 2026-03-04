@@ -5,7 +5,7 @@ import sqlite3
 from datetime import datetime
 from pathlib import Path
 
-from ..models import Artifact, CR, Decision, Review, ReviewScores, Round, Run
+from ..models import Artifact, CR, Decision, Review, ReviewScores, Round, Run, RunEvent
 
 
 class SqliteStore:
@@ -117,6 +117,20 @@ class SqliteStore:
                 avg_score REAL,
                 blocking_count INTEGER,
                 reason TEXT,
+                created_at TEXT
+            )
+            """
+        )
+        _ = cur.execute(
+            """
+            CREATE TABLE IF NOT EXISTS run_events (
+                id TEXT PRIMARY KEY,
+                run_id TEXT,
+                step TEXT,
+                event_type TEXT,
+                round_number INTEGER,
+                detail TEXT,
+                payload_json TEXT,
                 created_at TEXT
             )
             """
@@ -251,6 +265,18 @@ class SqliteStore:
             created_at=self._parse_datetime(row["created_at"]),
         )
 
+    def _row_to_run_event(self, row: sqlite3.Row) -> RunEvent:
+        return RunEvent(
+            id=row["id"],
+            run_id=row["run_id"],
+            step=row["step"] or "",
+            event_type=row["event_type"] or "",
+            round_number=int(row["round_number"] or 0),
+            detail=row["detail"] or "",
+            payload=self._load_dict(row["payload_json"]),
+            created_at=self._parse_datetime(row["created_at"]),
+        )
+
     def insert_run(self, run: Run) -> None:
         self._conn.execute(
             """
@@ -346,6 +372,19 @@ class SqliteStore:
 
     def get_run(self, run_id: str) -> Run | None:
         row = self._conn.execute("SELECT * FROM runs WHERE id = ?", (run_id,)).fetchone()
+        if row is None:
+            return None
+        return self._row_to_run(row)
+
+    def get_latest_run(self) -> Run | None:
+        row = self._conn.execute(
+            """
+            SELECT *
+              FROM runs
+             ORDER BY updated_at DESC, created_at DESC
+             LIMIT 1
+            """
+        ).fetchone()
         if row is None:
             return None
         return self._row_to_run(row)
@@ -522,6 +561,38 @@ class SqliteStore:
             ),
         )
         self._conn.commit()
+
+    def insert_run_event(self, event: RunEvent) -> None:
+        self._conn.execute(
+            """
+            INSERT INTO run_events (id, run_id, step, event_type, round_number, detail,
+                                    payload_json, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                event.id,
+                event.run_id,
+                event.step,
+                event.event_type,
+                event.round_number,
+                event.detail,
+                json.dumps(event.payload, ensure_ascii=False),
+                event.created_at.isoformat(),
+            ),
+        )
+        self._conn.commit()
+
+    def list_run_events(self, run_id: str) -> list[RunEvent]:
+        rows = self._conn.execute(
+            """
+            SELECT *
+              FROM run_events
+             WHERE run_id = ?
+             ORDER BY created_at ASC
+            """,
+            (run_id,),
+        ).fetchall()
+        return [self._row_to_run_event(row) for row in rows]
 
     def close(self) -> None:
         self._conn.close()
