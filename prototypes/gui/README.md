@@ -28,6 +28,12 @@ open prototypes/gui/review-workbench-v3.html
 - **已选 Badge**：选中画像后，"Start Run" 旁显示 `[画像名 ×]` 徽章，点 ✕ 清除
 - **审阅确认项**：两个 Tab 的切换是否流畅？卡片选中状态是否明显？Custom JSON 的错误提示是否清晰？
 
+### 面板 1.5：Run Events Timeline（SQLite）
+- **事件导入**：支持粘贴 `refinery observe --json` 输出并加载为事件表格
+- **示例填充**：点击“填充示例 / Fill Sample”可快速预览表格效果
+- **表格字段**：`time / round / step / event / detail / payload`
+- **审阅确认项**：事件字段是否足够排障？中英文切换下文案是否一致？
+
 ## v2 保留功能
 
 - **执行过程可视化（思考链）**：点击阶段卡片（Draft/Review/Edit/Gate），展示对应 CoT 日志
@@ -40,6 +46,7 @@ open prototypes/gui/review-workbench-v3.html
 - **Idea 输入**：先在 Panel 0 的 `💡 你的 Idea` 输入框填写需求描述
 - **文件上传**：点击拖拽区域选择文件，或将文件拖入；点 ✕ 删除单个文件（可选）
 - **岗位画像**：Library Tab 点"选择"选中预设；Custom Tab 粘贴 JSON 后点 Import
+- **事件时间线**：执行 `refinery observe --latest --json`，复制输出到 Panel 1.5，点击"加载事件 / Load Events"
 - **查看思考链**：点击 Timeline 中的阶段卡片，下方展示该阶段执行日志
 - **Gate 模拟**：点击 `Simulate PASS/FAIL/STOP`
 - **CR 进度**：勾选 CR 项，实时更新进度条

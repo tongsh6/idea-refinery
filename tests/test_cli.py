@@ -1,3 +1,5 @@
+import json
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 from click.testing import CliRunner
@@ -221,3 +223,152 @@ def test_cli_observe_filters_by_step_event_type_and_limit() -> None:
         assert "stage_completed" in result_by_type_limit.output
         assert "gate_decision" not in result_by_type_limit.output
         assert "run_started" not in result_by_type_limit.output
+
+
+def test_cli_observe_json_output_with_filters() -> None:
+    runner = CliRunner()
+    with runner.isolated_filesystem():
+        db_path = "./observe.db"
+        store = SqliteStore(db_path)
+        run = Run(idea="observe json", config_json="{}", status="done")
+        store.insert_run(run)
+        store.insert_run_event(
+            RunEvent(
+                run_id=run.id,
+                step="run",
+                event_type="run_started",
+                round_number=0,
+                payload={"seq": 1},
+            )
+        )
+        store.insert_run_event(
+            RunEvent(
+                run_id=run.id,
+                step="gate",
+                event_type="gate_decision",
+                round_number=1,
+                payload={"seq": 2},
+            )
+        )
+        store.close()
+
+        result = runner.invoke(
+            main,
+            [
+                "observe",
+                "--run-id",
+                run.id,
+                "--step",
+                "gate",
+                "--event-type",
+                "gate_decision",
+                "--json",
+            ],
+            env={"DB_PATH": db_path},
+        )
+
+        assert result.exit_code == 0
+        payload = result.output.strip()
+        raw_obj: object = json.loads(payload)
+        assert isinstance(raw_obj, dict)
+        data = raw_obj
+        assert data["run_id"] == run.id
+        assert data["event_count"] == 1
+        assert isinstance(data["filters"], dict)
+        assert data["filters"]["step"] == "gate"
+        assert data["filters"]["event_type"] == "gate_decision"
+        assert isinstance(data["events"], list)
+        assert isinstance(data["events"][0], dict)
+        assert data["events"][0]["event"] == "gate_decision"
+
+
+def test_cli_observe_filters_by_time_window() -> None:
+    runner = CliRunner()
+    with runner.isolated_filesystem():
+        db_path = "./observe.db"
+        store = SqliteStore(db_path)
+        run = Run(idea="observe time", config_json="{}", status="done")
+        store.insert_run(run)
+
+        base = datetime(2026, 3, 4, 12, 0, 0, tzinfo=UTC)
+        store.insert_run_event(
+            RunEvent(
+                run_id=run.id,
+                step="run",
+                event_type="run_started",
+                round_number=0,
+                created_at=base,
+                payload={"seq": 1},
+            )
+        )
+        store.insert_run_event(
+            RunEvent(
+                run_id=run.id,
+                step="gate",
+                event_type="gate_decision",
+                round_number=1,
+                created_at=base + timedelta(minutes=10),
+                payload={"seq": 2},
+            )
+        )
+        store.close()
+
+        result = runner.invoke(
+            main,
+            [
+                "observe",
+                "--run-id",
+                run.id,
+                "--since",
+                "2026-03-04T12:05:00+00:00",
+                "--until",
+                "2026-03-04T12:20:00+00:00",
+                "--json",
+            ],
+            env={"DB_PATH": db_path},
+        )
+
+        assert result.exit_code == 0
+        raw_obj: object = json.loads(result.output.strip())
+        assert isinstance(raw_obj, dict)
+        data = raw_obj
+        assert data["event_count"] == 1
+        assert isinstance(data["events"], list)
+        assert isinstance(data["events"][0], dict)
+        assert data["events"][0]["event"] == "gate_decision"
+
+
+def test_cli_observe_rejects_invalid_time_range() -> None:
+    runner = CliRunner()
+    with runner.isolated_filesystem():
+        db_path = "./observe.db"
+        store = SqliteStore(db_path)
+        run = Run(idea="observe invalid time", config_json="{}", status="done")
+        store.insert_run(run)
+        store.insert_run_event(
+            RunEvent(
+                run_id=run.id,
+                step="run",
+                event_type="run_started",
+                round_number=0,
+                payload={"seq": 1},
+            )
+        )
+        store.close()
+
+        result = runner.invoke(
+            main,
+            [
+                "observe",
+                "--run-id",
+                run.id,
+                "--since",
+                "2026-03-04T12:30:00+00:00",
+                "--until",
+                "2026-03-04T12:20:00+00:00",
+            ],
+            env={"DB_PATH": db_path},
+        )
+
+        assert result.exit_code != 0
+        assert "--since must be earlier" in result.output

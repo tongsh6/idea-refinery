@@ -230,6 +230,53 @@
       border-bottom: 1px dashed #0c5670;
     }
 
+    .events-actions {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      margin-top: 8px;
+      margin-bottom: 10px;
+      flex-wrap: wrap;
+    }
+
+    .events-table-wrap {
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      overflow: auto;
+      background: #fff;
+      max-height: 280px;
+    }
+
+    .events-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 12px;
+    }
+
+    .events-table th,
+    .events-table td {
+      border-bottom: 1px solid #ece7dd;
+      padding: 8px 10px;
+      text-align: left;
+      vertical-align: top;
+      white-space: nowrap;
+    }
+
+    .events-table th {
+      position: sticky;
+      top: 0;
+      background: #f7f4ec;
+      z-index: 1;
+      font-weight: 600;
+    }
+
+    .events-table td.payload {
+      max-width: 420px;
+      white-space: pre-wrap;
+      word-break: break-word;
+      color: #41525d;
+    }
+
     @media (max-width: 900px) {
       .grid { grid-template-columns: 1fr; }
       .timeline { grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -463,7 +510,7 @@
         <p data-i18n="subtitle">Run #R-2026-02-28 · 从 idea 到 Gate 的可视化审阅面板（MVP 草案 v3）</p>
       </div>
       <div class="topbar-actions">
-        <button id="langToggle" class="lang-switch">EN / 中文</button>
+        <button type="button" id="langToggle" class="lang-switch">EN / 中文</button>
         <div id="gatePill" class="gate-pill" data-i18n="gate_waiting">Gate: WAITING</div>
       </div>
     </section>
@@ -475,10 +522,10 @@
         <div style="display: flex; gap: 8px; align-items: center;">
           <span id="profileBadge" style="display: none; align-items: center; background: var(--accent-soft); color: var(--accent); padding: 4px 10px; border-radius: 6px; font-size: 13px; font-weight: 600; border: 1px solid var(--accent);">
             <span id="profileBadgeName"></span>
-            <span class="badge-close" onclick="clearProfile()">✕</span>
+            <span class="badge-close" id="profileBadgeClose">✕</span>
           </span>
-          <button class="btn-primary" id="btnStartRun" disabled data-i18n="upload_start">开始 Run</button>
-          <button class="btn-secondary" id="btnAddMore" data-i18n="upload_add_more">+ 添加更多</button>
+          <button type="button" class="btn-primary" id="btnStartRun" disabled data-i18n="upload_start">开始 Run</button>
+          <button type="button" class="btn-secondary" id="btnAddMore" data-i18n="upload_add_more">+ 添加更多</button>
         </div>
       </div>
       
@@ -501,8 +548,8 @@
     <article class="card">
       <h2 data-i18n="profile_title" style="margin-bottom: 12px;">0.5) 角色配置 / Job Profile Configuration</h2>
       <div class="tabs">
-        <button class="tab-btn active" data-tab="library" data-i18n="profile_tab_library">预设库</button>
-        <button class="tab-btn" data-tab="custom" data-i18n="profile_tab_custom">自定义</button>
+        <button type="button" class="tab-btn active" data-tab="library" data-i18n="profile_tab_library">预设库</button>
+        <button type="button" class="tab-btn" data-tab="custom" data-i18n="profile_tab_custom">自定义</button>
       </div>
       
       <div id="tabLibrary" class="tab-content active">
@@ -510,22 +557,22 @@
           <div class="profile-card" data-profile="pm">
             <div class="profile-name" data-i18n="profile_pm_name">产品经理</div>
             <div class="profile-desc muted" data-i18n="profile_pm_desc">价值对齐、范围管控、用户故事验收</div>
-            <button class="btn-secondary select-profile" data-profile="pm" data-i18n="profile_select_btn">选择</button>
+            <button type="button" class="btn-secondary select-profile" data-profile="pm" data-i18n="profile_select_btn">选择</button>
           </div>
           <div class="profile-card" data-profile="tl">
             <div class="profile-name" data-i18n="profile_tl_name">技术负责人</div>
             <div class="profile-desc muted" data-i18n="profile_tl_desc">架构可行性、技术债、接口规范</div>
-            <button class="btn-secondary select-profile" data-profile="tl" data-i18n="profile_select_btn">选择</button>
+            <button type="button" class="btn-secondary select-profile" data-profile="tl" data-i18n="profile_select_btn">选择</button>
           </div>
           <div class="profile-card" data-profile="ae">
             <div class="profile-name" data-i18n="profile_ae_name">算法工程师</div>
             <div class="profile-desc muted" data-i18n="profile_ae_desc">模型评估、数据质量、实验设计</div>
-            <button class="btn-secondary select-profile" data-profile="ae" data-i18n="profile_select_btn">选择</button>
+            <button type="button" class="btn-secondary select-profile" data-profile="ae" data-i18n="profile_select_btn">选择</button>
           </div>
           <div class="profile-card" data-profile="da">
             <div class="profile-name" data-i18n="profile_da_name">数据分析师</div>
             <div class="profile-desc muted" data-i18n="profile_da_desc">指标定义、分析框架、数据治理</div>
-            <button class="btn-secondary select-profile" data-profile="da" data-i18n="profile_select_btn">选择</button>
+            <button type="button" class="btn-secondary select-profile" data-profile="da" data-i18n="profile_select_btn">选择</button>
           </div>
         </div>
       </div>
@@ -533,7 +580,7 @@
       <div id="tabCustom" class="tab-content" style="display: none;">
         <textarea id="customProfileJson" data-i18n="profile_custom_placeholder" placeholder='{"name": "My Role", "focus": ["..."], "hats": ["value", "risk"]}'></textarea>
         <div style="margin-top: 8px; display: flex; align-items: center; gap: 12px;">
-          <button class="btn-secondary" id="btnImportJson" data-i18n="profile_import_btn">导入</button>
+          <button type="button" class="btn-secondary" id="btnImportJson" data-i18n="profile_import_btn">导入</button>
           <span id="jsonError" style="color: var(--danger); display: none; font-size: 13px;" data-i18n="profile_json_error">JSON 格式无效</span>
         </div>
       </div>
@@ -543,19 +590,19 @@
       <article class="card">
         <h2 data-i18n="timeline_title">1) Pipeline Timeline & Execution Trace</h2>
         <div class="timeline" id="timeline">
-          <button class="stage-btn active" data-stage="Draft" data-time="08m 12s">
+          <button type="button" class="stage-btn active" data-stage="Draft" data-time="08m 12s">
             <div class="stage-name">Draft</div>
             <div class="stage-meta"><span data-i18n="status_done">done</span> · 08m 12s</div>
           </button>
-          <button class="stage-btn" data-stage="Review" data-time="14m 31s">
+          <button type="button" class="stage-btn" data-stage="Review" data-time="14m 31s">
             <div class="stage-name">Review</div>
             <div class="stage-meta"><span data-i18n="status_done">done</span> · 14m 31s</div>
           </button>
-          <button class="stage-btn" data-stage="Edit" data-time="11m 07s">
+          <button type="button" class="stage-btn" data-stage="Edit" data-time="11m 07s">
             <div class="stage-name">Edit</div>
             <div class="stage-meta"><span data-i18n="status_in_progress">in progress</span> · 11m 07s</div>
           </button>
-          <button class="stage-btn" data-stage="Gate" data-time="--">
+          <button type="button" class="stage-btn" data-stage="Gate" data-time="--">
             <div class="stage-name">Gate</div>
             <div class="stage-meta"><span data-i18n="status_waiting">waiting</span> · --</div>
           </button>
@@ -577,21 +624,34 @@
         <h2 data-i18n="gate_title">2) Gate Decision Preview</h2>
         <div id="gateReason" class="muted" data-i18n="gate_reason_waiting">当前 Blocking CR = 1，尚不满足 PASS 条件（Blocking=0 且 avgScore≥8）。</div>
         <div class="gate-actions">
-          <button data-decision="PASS" data-i18n="btn_sim_pass">Simulate PASS</button>
-          <button data-decision="FAIL" data-i18n="btn_sim_fail">Simulate FAIL</button>
-          <button data-decision="STOP" data-i18n="btn_sim_stop">Simulate STOP</button>
+          <button type="button" data-decision="PASS" data-i18n="btn_sim_pass">Simulate PASS</button>
+          <button type="button" data-decision="FAIL" data-i18n="btn_sim_fail">Simulate FAIL</button>
+          <button type="button" data-decision="STOP" data-i18n="btn_sim_stop">Simulate STOP</button>
         </div>
       </article>
     </section>
+
+    <article class="card">
+      <h2 data-i18n="events_title">1.5) Run Events Timeline（SQLite）</h2>
+      <p class="muted" data-i18n="events_desc">粘贴 `refinery observe --json` 输出，加载后按表格查看事件时间线。</p>
+      <textarea id="eventsJsonInput" data-i18n="events_placeholder" placeholder='粘贴 JSON，例如: {"run_id":"...","events":[...]}' style="width:100%; min-height:110px; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; font-size:12px; padding:10px; border:1px solid var(--line); border-radius:8px; background:#fafcfb;"></textarea>
+      <div class="events-actions">
+        <button type="button" class="btn-secondary" id="btnLoadEvents" data-i18n="events_load_btn">加载事件</button>
+        <button type="button" class="btn-secondary" id="btnLoadEventsSample" data-i18n="events_sample_btn">填充示例</button>
+        <span id="eventsError" style="display:none; color: var(--danger); font-size: 13px;" data-i18n="events_json_error">事件 JSON 格式无效</span>
+      </div>
+      <div id="eventsSummary" class="muted"></div>
+      <div class="events-table-wrap" id="eventsTableWrap" style="margin-top:8px;"></div>
+    </article>
 
     <section class="grid">
       <article class="card">
         <h2 data-i18n="cr_title">3) CR Workspace</h2>
         <div class="chips" id="chips">
-          <button class="chip active" data-filter="all" data-i18n="filter_all">All</button>
-          <button class="chip" data-filter="blocking">Blocking</button>
-          <button class="chip" data-filter="major">Major</button>
-          <button class="chip" data-filter="minor">Minor</button>
+          <button type="button" class="chip active" data-filter="all" data-i18n="filter_all">All</button>
+          <button type="button" class="chip" data-filter="blocking">Blocking</button>
+          <button type="button" class="chip" data-filter="major">Major</button>
+          <button type="button" class="chip" data-filter="minor">Minor</button>
         </div>
 
         <div class="cr-list" id="crList">
@@ -705,6 +765,20 @@
         profile_custom_placeholder: '例如: {"name": "My Role", "focus": ["..."], "hats": ["value", "risk"]}',
         profile_import_btn: "导入",
         profile_json_error: "JSON 格式无效"
+        ,events_title: "1.5) 运行事件时间线（SQLite）"
+        ,events_desc: "粘贴 `refinery observe --json` 输出，加载后按表格查看事件时间线。"
+        ,events_placeholder: "粘贴 JSON，例如: {\"run_id\":\"...\",\"events\":[...]}"
+        ,events_load_btn: "加载事件"
+        ,events_sample_btn: "填充示例"
+        ,events_json_error: "事件 JSON 格式无效"
+        ,events_empty: "暂无事件，请先加载 JSON。"
+        ,events_summary: "Run"
+        ,events_col_time: "时间"
+        ,events_col_round: "轮次"
+        ,events_col_step: "阶段"
+        ,events_col_event: "事件"
+        ,events_col_detail: "详情"
+        ,events_col_payload: "载荷"
       },
       en: {
         title: "IdeaRefinery Review Workbench",
@@ -768,12 +842,28 @@
         profile_select_btn: "Select",
         profile_custom_placeholder: 'e.g. {"name": "My Role", "focus": ["..."], "hats": ["value", "risk"]}',
         profile_import_btn: "Import",
-        profile_json_error: "Invalid JSON format"
+        profile_json_error: "Invalid JSON format",
+        events_title: "1.5) Run Events Timeline (SQLite)",
+        events_desc: "Paste output from `refinery observe --json` and load it as a table timeline.",
+        events_placeholder: "Paste JSON, e.g. {\"run_id\":\"...\",\"events\":[...]}",
+        events_load_btn: "Load Events",
+        events_sample_btn: "Fill Sample",
+        events_json_error: "Invalid events JSON format",
+        events_empty: "No events yet. Load JSON first.",
+        events_summary: "Run",
+        events_col_time: "Time",
+        events_col_round: "Round",
+        events_col_step: "Step",
+        events_col_event: "Event",
+        events_col_detail: "Detail",
+        events_col_payload: "Payload"
       }
     };
 
     let currentLang = 'zh';
     let currentGateDecision = 'WAITING';
+    let loadedEventsRunId = '';
+    let loadedEvents = [];
 
     // Chain of Thought Logs Mock Data
     const cotLogs = {
@@ -805,6 +895,18 @@
       `
     };
 
+    const sampleEventsPayload = {
+      run_id: 'run-sample-v3',
+      filters: { step: null, event_type: null, limit: null, since: null, until: null },
+      event_count: 4,
+      events: [
+        { time: '2026-03-04T12:00:00+00:00', round: 0, step: 'run', event: 'run_started', detail: '', payload: { artifact_type: 'PRD', dry_run: false } },
+        { time: '2026-03-04T12:00:03+00:00', round: 1, step: 'draft', event: 'stage_completed', detail: '', payload: { duration_ms: 3012, provider: 'openai' } },
+        { time: '2026-03-04T12:00:15+00:00', round: 1, step: 'gate', event: 'gate_decision', detail: 'pass_gate', payload: { decision: 'PASS', avg_score: 8.7, blocking_count: 0 } },
+        { time: '2026-03-04T12:00:16+00:00', round: 1, step: 'run', event: 'run_completed', detail: '', payload: { total_rounds: 1, total_cost_usd: 0.09 } }
+      ]
+    };
+
     // --- Panel 0 & Panel 1 Logic ---
     let files = [
       { name: 'requirements.md', size: '12.3 KB', icon: '#️⃣' },
@@ -824,9 +926,17 @@
           <span class="file-icon">${f.icon}</span>
           <span class="file-name">${f.name}</span>
           <span class="file-size">${f.size}</span>
-          <span class="file-delete" onclick="removeFile(${index})">✕</span>
+          <span class="file-delete" data-index="${index}">✕</span>
         `;
         fileList.appendChild(row);
+      });
+      document.querySelectorAll('.file-delete').forEach((el) => {
+        el.addEventListener('click', () => {
+          const rawIndex = el.getAttribute('data-index');
+          if (rawIndex !== null) {
+            removeFile(Number(rawIndex));
+          }
+        });
       });
       // document.getElementById('btnStartRun').disabled = files.length === 0;
     }
@@ -841,7 +951,7 @@
       const k = 1024;
       const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
       const i = Math.floor(Math.log(bytes) / Math.log(k));
-      return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+      return `${parseFloat((bytes / (k ** i)).toFixed(1))} ${sizes[i]}`;
     }
 
     function handleFileSelect(event) {
@@ -903,11 +1013,15 @@
       custom: document.getElementById('tabCustom')
     };
 
-    tabs.forEach(tab => {
+    tabs.forEach((tab) => {
       tab.addEventListener('click', () => {
-        tabs.forEach(t => t.classList.remove('active'));
+        tabs.forEach((t) => {
+          t.classList.remove('active');
+        });
         tab.classList.add('active');
-        Object.values(tabContents).forEach(content => content.style.display = 'none');
+        Object.values(tabContents).forEach((content) => {
+          content.style.display = 'none';
+        });
         tabContents[tab.dataset.tab].style.display = 'block';
       });
     });
@@ -926,7 +1040,9 @@
         profileBadge.style.display = 'inline-flex';
       }
       
-      profileCards.forEach(c => c.classList.remove('selected'));
+      profileCards.forEach((c) => {
+        c.classList.remove('selected');
+      });
       if (cardElement) {
         cardElement.classList.add('selected');
       }
@@ -936,7 +1052,78 @@
       selectedProfile = null;
       selectedProfileKey = null;
       profileBadge.style.display = 'none';
-      profileCards.forEach(c => c.classList.remove('selected'));
+      profileCards.forEach((c) => {
+        c.classList.remove('selected');
+      });
+    }
+
+    document.getElementById('profileBadgeClose').addEventListener('click', clearProfile);
+
+    function escapeHtml(value) {
+      return String(value)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    }
+
+    function renderEventsTable() {
+      const eventsSummary = document.getElementById('eventsSummary');
+      const eventsTableWrap = document.getElementById('eventsTableWrap');
+
+      if (!loadedEvents.length) {
+        eventsSummary.textContent = i18n[currentLang].events_empty;
+        eventsTableWrap.innerHTML = '';
+        return;
+      }
+
+      eventsSummary.textContent = `${i18n[currentLang].events_summary}: ${loadedEventsRunId} · ${loadedEvents.length}`;
+
+      const header = `
+        <thead>
+          <tr>
+            <th>${i18n[currentLang].events_col_time}</th>
+            <th>${i18n[currentLang].events_col_round}</th>
+            <th>${i18n[currentLang].events_col_step}</th>
+            <th>${i18n[currentLang].events_col_event}</th>
+            <th>${i18n[currentLang].events_col_detail}</th>
+            <th>${i18n[currentLang].events_col_payload}</th>
+          </tr>
+        </thead>
+      `;
+
+      const bodyRows = loadedEvents.map((evt) => {
+        const payload = escapeHtml(JSON.stringify(evt.payload || {}, null, 0));
+        return `
+          <tr>
+            <td>${escapeHtml(evt.time || '')}</td>
+            <td>${escapeHtml(evt.round ?? '')}</td>
+            <td>${escapeHtml(evt.step || '')}</td>
+            <td>${escapeHtml(evt.event || '')}</td>
+            <td>${escapeHtml(evt.detail || '')}</td>
+            <td class="payload">${payload}</td>
+          </tr>
+        `;
+      }).join('');
+
+      eventsTableWrap.innerHTML = `<table class="events-table">${header}<tbody>${bodyRows}</tbody></table>`;
+    }
+
+    function loadEventsFromInput() {
+      const eventsError = document.getElementById('eventsError');
+      const raw = document.getElementById('eventsJsonInput').value.trim();
+      try {
+        const parsed = JSON.parse(raw);
+        if (!parsed || typeof parsed !== 'object') throw new Error('invalid');
+        if (!Array.isArray(parsed.events)) throw new Error('invalid');
+        loadedEventsRunId = String(parsed.run_id || 'unknown-run');
+        loadedEvents = parsed.events;
+        eventsError.style.display = 'none';
+        renderEventsTable();
+      } catch (e) {
+        eventsError.style.display = 'inline';
+      }
     }
 
     document.querySelectorAll('.select-profile').forEach(btn => {
@@ -963,6 +1150,12 @@
       } catch (e) {
         errorEl.style.display = 'inline';
       }
+    });
+
+    document.getElementById('btnLoadEvents').addEventListener('click', loadEventsFromInput);
+    document.getElementById('btnLoadEventsSample').addEventListener('click', () => {
+      document.getElementById('eventsJsonInput').value = JSON.stringify(sampleEventsPayload, null, 2);
+      loadEventsFromInput();
     });
 
     // --- Core i18n & Logic ---
@@ -995,6 +1188,7 @@
       // Update active stage note
       const activeStage = document.querySelector('.stage-btn.active').dataset.stage;
       document.getElementById('stageNote').textContent = i18n[currentLang][`note_${activeStage.toLowerCase()}`];
+      renderEventsTable();
     }
 
     document.getElementById('langToggle').addEventListener('click', () => {
@@ -1009,7 +1203,9 @@
 
     stageButtons.forEach((btn) => {
       btn.addEventListener('click', () => {
-        stageButtons.forEach((item) => item.classList.remove('active'));
+        stageButtons.forEach((item) => {
+          item.classList.remove('active');
+        });
         btn.classList.add('active');
         const stage = btn.dataset.stage;
         const noteKey = `note_${stage.toLowerCase()}`;
@@ -1056,14 +1252,18 @@
       progressBar.style.width = `${(closed / total) * 100}%`;
     }
 
-    checks.forEach((box) => box.addEventListener('change', updateProgress));
+    checks.forEach((box) => {
+      box.addEventListener('change', updateProgress);
+    });
     updateProgress();
 
     const chips = Array.from(document.querySelectorAll('.chip'));
     const crItems = Array.from(document.querySelectorAll('.cr-item'));
     chips.forEach((chip) => {
       chip.addEventListener('click', () => {
-        chips.forEach((c) => c.classList.remove('active'));
+        chips.forEach((c) => {
+          c.classList.remove('active');
+        });
         chip.classList.add('active');
         const filter = chip.dataset.filter;
         crItems.forEach((item) => {
@@ -1074,6 +1274,7 @@
     
     // Initial renders
     renderFiles();
+    renderEventsTable();
     updateLanguage();
   </script>
 </body>

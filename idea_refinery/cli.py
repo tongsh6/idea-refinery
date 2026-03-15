@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os
+from datetime import UTC, datetime
 
 import click
 from dotenv import load_dotenv
@@ -106,6 +107,23 @@ def _render_timeline_table(rows: list[tuple[str, str, str, str, str, str]]) -> s
     lines = [render_row(headers), separator]
     lines.extend(render_row(row) for row in rows)
     return "\n".join(lines)
+
+
+def _parse_time_filter(value: str | None, option_name: str) -> datetime | None:
+    if not value:
+        return None
+    normalized = value.strip()
+    if normalized.endswith("Z"):
+        normalized = f"{normalized[:-1]}+00:00"
+    try:
+        dt = datetime.fromisoformat(normalized)
+    except ValueError as exc:
+        raise click.BadParameter(
+            f"{option_name} must be ISO8601 datetime (e.g. 2026-03-04T12:30:00+00:00)"
+        ) from exc
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=UTC)
+    return dt
 
 
 @main.command()
@@ -215,12 +233,18 @@ def run(
 @click.option("--step", required=False, help="Filter by step (e.g. draft/review/edit/gate/run)")
 @click.option("--event-type", required=False, help="Filter by event type")
 @click.option("--limit", required=False, type=click.IntRange(min=1), help="Show last N matched events")
+@click.option("--since", required=False, help="Filter events at or after ISO8601 time")
+@click.option("--until", required=False, help="Filter events at or before ISO8601 time")
+@click.option("--json", "json_output", is_flag=True, default=False, help="Print timeline as JSON")
 def observe(
     run_id: str | None,
     latest: bool,
     step: str | None,
     event_type: str | None,
     limit: int | None,
+    since: str | None,
+    until: str | None,
+    json_output: bool,
 ) -> None:
     if latest and run_id:
         raise click.ClickException("Use either --run-id or --latest, not both")
@@ -229,6 +253,11 @@ def observe(
 
     db_path = os.getenv("DB_PATH", "./refinery.db")
     store = SqliteStore(db_path)
+    since_dt = _parse_time_filter(since, "--since")
+    until_dt = _parse_time_filter(until, "--until")
+    if since_dt and until_dt and since_dt > until_dt:
+        store.close()
+        raise click.ClickException("--since must be earlier than or equal to --until")
 
     run = store.get_latest_run() if latest else store.get_run(str(run_id))
     if run is None:
@@ -242,6 +271,10 @@ def observe(
         events = [event for event in events if event.step == step]
     if event_type:
         events = [event for event in events if event.event_type == event_type]
+    if since_dt:
+        events = [event for event in events if event.created_at >= since_dt]
+    if until_dt:
+        events = [event for event in events if event.created_at <= until_dt]
     if limit is not None:
         events = events[-limit:]
 
@@ -250,16 +283,49 @@ def observe(
         click.echo(f"No events for run {selected_run_id}")
         return
 
+    event_records = [
+        {
+            "time": event.created_at.isoformat(timespec="seconds"),
+            "round": event.round_number,
+            "step": event.step,
+            "event": event.event_type,
+            "detail": event.detail,
+            "payload": event.payload,
+        }
+        for event in events
+    ]
+
+    if json_output:
+        click.echo(
+            json.dumps(
+                {
+                    "run_id": selected_run_id,
+                    "filters": {
+                        "step": step,
+                        "event_type": event_type,
+                        "limit": limit,
+                        "since": since,
+                        "until": until,
+                    },
+                    "event_count": len(event_records),
+                    "events": event_records,
+                },
+                ensure_ascii=False,
+            )
+        )
+        store.close()
+        return
+
     table_rows: list[tuple[str, str, str, str, str, str]] = []
-    for event in events:
-        payload = json.dumps(event.payload, ensure_ascii=False, separators=(",", ":"))
+    for event in event_records:
+        payload = json.dumps(event["payload"], ensure_ascii=False, separators=(",", ":"))
         table_rows.append(
             (
-                event.created_at.isoformat(timespec="seconds"),
-                str(event.round_number),
-                event.step,
-                event.event_type,
-                event.detail,
+                str(event["time"]),
+                str(event["round"]),
+                str(event["step"]),
+                str(event["event"]),
+                str(event["detail"]),
                 payload,
             )
         )
